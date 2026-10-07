@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ZONES } from '../data/zones';
+import { FLOORS } from '../data/floors';
 
 const MESH_TO_ZONE = {
   Zone_A_ME_Plant: 'zone-a',
@@ -24,6 +25,13 @@ const ZONE_TO_FLOOR = {
 
 const ZONE_META = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 
+/** Floors grouped by zone for tooltip display */
+const ZONE_FLOORS = {};
+FLOORS.forEach((f) => {
+  if (!ZONE_FLOORS[f.zoneId]) ZONE_FLOORS[f.zoneId] = [];
+  ZONE_FLOORS[f.zoneId].push(f);
+});
+
 function findZoneId(object) {
   let cur = object;
   while (cur) {
@@ -36,8 +44,9 @@ function findZoneId(object) {
 /**
  * Blender Light Exchange digital twin (LightExchange_DigitalTwin.glb)
  */
-export default function TowerModel({ selectedZone, onSelect }) {
+export default function TowerModel({ selectedZone, onSelect, onHover }) {
   const groupRef = useRef();
+  const hoveredZoneRef = useRef(null);
   const navigate = useNavigate();
   const { scene } = useGLTF('/LightExchange_DigitalTwin.glb');
 
@@ -84,6 +93,30 @@ export default function TowerModel({ selectedZone, onSelect }) {
     };
   }, [model]);
 
+  // Apply hover highlight to zone meshes
+  const applyHoverHighlight = useCallback(
+    (hoverZoneId) => {
+      model.traverse((obj) => {
+        if (!obj.isMesh || !obj.material || !obj.userData.zoneId) return;
+        if (obj.userData.zoneId === selectedZone) return; // don't touch selected
+        const hovered = obj.userData.zoneId === hoverZoneId;
+        if (hovered) {
+          obj.material.emissive = new THREE.Color('#ffffff');
+          obj.material.emissiveIntensity = 0.15;
+          obj.material.opacity = 1;
+        } else {
+          const warn = ZONE_META[obj.userData.zoneId]?.status === 'warn';
+          obj.material.opacity = warn ? 0.95 : 0.88;
+          if (obj.material.emissive) {
+            obj.material.emissive.set('#000000');
+            obj.material.emissiveIntensity = 0;
+          }
+        }
+      });
+    },
+    [model, selectedZone],
+  );
+
   // Highlight selected zone meshes
   useEffect(() => {
     model.traverse((obj) => {
@@ -128,12 +161,42 @@ export default function TowerModel({ selectedZone, onSelect }) {
         const floorId = ZONE_TO_FLOOR[zoneId];
         if (floorId) navigate(`/floor/${floorId}`);
       }}
+      onPointerMove={(e) => {
+        const zoneId = findZoneId(e.object);
+        if (zoneId) {
+          document.body.style.cursor = 'pointer';
+          if (hoveredZoneRef.current !== zoneId) {
+            hoveredZoneRef.current = zoneId;
+            applyHoverHighlight(zoneId);
+          }
+          const zone = ZONE_META[zoneId];
+          const floors = ZONE_FLOORS[zoneId] || [];
+          onHover?.({
+            zoneId,
+            floorId: ZONE_TO_FLOOR[zoneId],
+            name: zone?.name || '',
+            floors: zone?.floors || '',
+            energy: zone?.energy || '',
+            status: zone?.status || 'ok',
+            color: zone?.color || '#94a3b8',
+            floorDetails: floors.map((f) => ({
+              label: f.label,
+              description: f.description,
+            })),
+            x: e.nativeEvent?.clientX ?? e.clientX ?? 0,
+            y: e.nativeEvent?.clientY ?? e.clientY ?? 0,
+          });
+        }
+      }}
       onPointerOver={(e) => {
         const zoneId = findZoneId(e.object);
         if (zoneId) document.body.style.cursor = 'pointer';
       }}
       onPointerOut={() => {
         document.body.style.cursor = 'default';
+        hoveredZoneRef.current = null;
+        applyHoverHighlight(null);
+        onHover?.(null);
       }}
     >
       <primitive object={model} />

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import FloorLabels from '../components/FloorLabels';
@@ -8,6 +9,42 @@ export default function DashboardPage() {
   const [selectedZone, setSelectedZone] = useState('zone-c');
   const [activeTab, setActiveTab] = useState('EE');
   const [glFailed, setGlFailed] = useState(false);
+  const [hoveredZone, setHoveredZone] = useState(null);
+  const tooltipRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
+  const navigate = useNavigate();
+
+  const handleBuildingHover = useCallback((info) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    
+    if (info) {
+      setHoveredZone((prev) => {
+        // If we already have a tooltip hovered, don't update its position if it's the same zone
+        // to avoid it jumping away from the cursor.
+        if (prev && prev.zoneId === info.zoneId && tooltipRef.current && tooltipRef.current.matches(':hover')) {
+          return prev;
+        }
+        
+        // Position tooltip near cursor
+        if (tooltipRef.current) {
+          const pad = 16;
+          const tt = tooltipRef.current;
+          const maxX = window.innerWidth - tt.offsetWidth - pad;
+          const maxY = window.innerHeight - tt.offsetHeight - pad;
+          tt.style.left = `${Math.min(info.x + pad, maxX)}px`;
+          tt.style.top = `${Math.min(info.y + pad, maxY)}px`;
+        }
+        return info;
+      });
+    } else {
+      // Small delay before hiding to allow moving mouse into the tooltip
+      hoverTimeoutRef.current = setTimeout(() => {
+        setHoveredZone(null);
+      }, 150);
+    }
+  }, []);
 
   const barData = [40, 55, 30, 45, 70, 85, 60, 50, 40, 30, 45, 65];
 
@@ -37,6 +74,7 @@ export default function DashboardPage() {
               selectedZone={selectedZone}
               onSelect={setSelectedZone}
               onFail={() => setGlFailed(true)}
+              onHover={handleBuildingHover}
             />
           </ErrorBoundaryCanvas>
         </div>
@@ -69,6 +107,62 @@ export default function DashboardPage() {
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {/* Hover tooltip for 3D building zones */}
+        {!glFailed && hoveredZone && (
+          <div
+            ref={tooltipRef}
+            className="building-hover-tooltip interactive"
+            style={{
+              left: hoveredZone.x + 16,
+              top: hoveredZone.y + 16,
+            }}
+            onMouseEnter={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            }}
+            onMouseLeave={() => {
+              hoverTimeoutRef.current = setTimeout(() => {
+                setHoveredZone(null);
+              }, 150);
+            }}
+            onClick={() => {
+              if (hoveredZone.floorId) {
+                navigate(`/floor/${hoveredZone.floorId}`);
+              }
+            }}
+          >
+            <div className="bht-header">
+              <span
+                className="bht-dot"
+                style={{ background: hoveredZone.color }}
+              />
+              <span className="bht-name">{hoveredZone.name}</span>
+              <span
+                className={`bht-badge ${
+                  hoveredZone.status === 'warn' ? 'warn' : 'ok'
+                }`}
+              >
+                {hoveredZone.status === 'warn' ? 'GAP' : 'OK'}
+              </span>
+            </div>
+            <div className="bht-floors-label">{hoveredZone.floors}</div>
+            {hoveredZone.floorDetails?.length > 0 && (
+              <ul className="bht-floor-list">
+                {hoveredZone.floorDetails.map((f, i) => (
+                  <li key={i}>
+                    <span className="bht-fl-code">{f.label}</span>
+                    <span className="bht-fl-desc">{f.description}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="bht-energy">
+              <span>Energy Load</span>
+              <b>{hoveredZone.energy}</b>
+            </div>
+            <div className="bht-click-hint">Click to explore →</div>
           </div>
         )}
       </div>
