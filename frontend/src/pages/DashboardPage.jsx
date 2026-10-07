@@ -7,9 +7,11 @@ import { ZONES } from '../data/zones';
 
 export default function DashboardPage() {
   const [selectedZone, setSelectedZone] = useState('zone-c');
-  const [activeTab, setActiveTab] = useState('EE');
+  const [activeTab, setActiveTab] = useState('Dashboard');
   const [glFailed, setGlFailed] = useState(false);
   const [hoveredZone, setHoveredZone] = useState(null);
+  const [weatherData, setWeatherData] = useState({ temp: 24, humidity: 78, emoji: '☀️', forecast: [] });
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
   const tooltipRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
   const navigate = useNavigate();
@@ -61,6 +63,23 @@ export default function DashboardPage() {
       alert('Backend not connected: ' + e.message);
     }
   };
+
+  useEffect(() => {
+    // Fetch live weather data on mount
+    fetch('http://localhost:5000/api/weather')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          setWeatherData({
+            temp: Math.round(data.temperature),
+            humidity: Math.round(data.humidity),
+            emoji: data.emoji,
+            forecast: data.forecast || []
+          });
+        }
+      })
+      .catch(err => console.error('Error fetching weather:', err));
+  }, []);
 
   return (
     <div className="dashboard">
@@ -188,84 +207,159 @@ export default function DashboardPage() {
       </div>
 
       <div className="left-panel">
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">Predicted Load Tomorrow</div>
-              <span className="ai-badge">AI FORECAST</span>
-            </div>
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <span className="big-metric">48.63</span>
-            <span className="metric-unit">kWh</span>
-          </div>
-          <div className="bar-chart">
-            {barData.map((val, i) => (
-              <div key={i} className="bar-bg">
-                <div className={`bar-fill ${i === 5 ? 'alert' : 'normal'}`} style={{ height: `${val}%` }} />
+        {activeTab === 'Waste Management' ? (
+          <>
+            <div className="glass-panel" style={{ padding: '1.25rem' }}>
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Smart Bin Diagnostics</div>
+                  <span className="ai-badge">YOLO VISION + MATH</span>
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="chart-labels">
-            <span>00:00</span>
-            <span>12:00</span>
-            <span>24:00</span>
-          </div>
-        </div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '1rem', lineHeight: '1.4' }}>
+                YOLO is used for object detection and classification, while image-based size estimation and geometric calculations are used to estimate the volumetric proportions of waste categories.
+              </div>
+              <div className="metrics-grid" style={{ gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(226, 232, 240, 0.4)', paddingBottom: '4px' }}>
+                  <span className="metric-label">Plastic bottles</span>
+                  <span className="metric-value" style={{ fontSize: '0.9rem' }}>2.5 L</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(226, 232, 240, 0.4)', paddingBottom: '4px' }}>
+                  <span className="metric-label">Cans</span>
+                  <span className="metric-value" style={{ fontSize: '0.9rem' }}>1.0 L</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(226, 232, 240, 0.4)', paddingBottom: '4px' }}>
+                  <span className="metric-label">Cardboard</span>
+                  <span className="metric-value" style={{ fontSize: '0.9rem' }}>1.5 L</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(226, 232, 240, 0.4)', paddingBottom: '4px' }}>
+                  <span className="metric-label">Food waste</span>
+                  <span className="metric-value alert" style={{ fontSize: '0.9rem', color: '#f59e0b' }}>2.0 L</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="metric-label">Other waste</span>
+                  <span className="metric-value alert" style={{ fontSize: '0.9rem', color: '#f59e0b' }}>1.0 L</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '2px solid #e2e8f0' }}>
+                  <b className="metric-label" style={{ color: '#0f172a' }}>Total Estimated Volume</b>
+                  <b className="metric-value" style={{ fontSize: '1rem', color: '#0f172a' }}>8.0 L</b>
+                </div>
+              </div>
+            </div>
 
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <div className="card-header">
-            <div className="card-title">Weather</div>
-            <span className="btn-details">Details</span>
-          </div>
-          <div className="weather-row">
-            <span style={{ fontSize: '1.3rem' }}>☀️</span>
-            <span className="temp-big">24°C</span>
-            <span className="weather-tag">HUMIDITY 78%</span>
-          </div>
-        </div>
+            <div className="glass-panel" style={{ padding: '1.25rem' }}>
+              <div className="card-header">
+                <div className="card-title">Recyclable Volume Ratio</div>
+                <span className="btn-details">AI</span>
+              </div>
+              <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Estimated Recyclable</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>62.5%</span>
+                </div>
+                <div className="bar-bg">
+                  <div className="bar-fill green" style={{ height: '100%', width: '62.5%', background: '#10b981' }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Estimated General/Organic</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f59e0b' }}>37.5%</span>
+                </div>
+                <div className="bar-bg">
+                  <div className="bar-fill warn" style={{ height: '100%', width: '37.5%', background: '#f59e0b' }} />
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="glass-panel" style={{ padding: '1.25rem' }}>
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Compliance Overview</div>
+                  <span className="ai-badge">GREENRE STATUS</span>
+                </div>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <span className="big-metric">88.4</span>
+                <span className="metric-unit">/ 100</span>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                  Next Renewal: <b>45 Days</b>
+                </div>
+              </div>
+              <div className="metrics-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <div className="metric-label">EE (Energy)</div>
+                  <div className="metric-value green" style={{ fontSize: '1rem' }}>🟢 Met</div>
+                </div>
+                <div>
+                  <div className="metric-label">WE (Water)</div>
+                  <div className="metric-value warn" style={{ fontSize: '1rem', color: '#eab308' }}>🟡 Partial</div>
+                </div>
+                <div>
+                  <div className="metric-label">IEQ (Indoor Air)</div>
+                  <div className="metric-value green" style={{ fontSize: '1rem' }}>🟢 Met</div>
+                </div>
+                <div>
+                  <div className="metric-label">SM-EP (Evidence)</div>
+                  <div className="metric-value alert" style={{ fontSize: '1rem', color: '#ef4444' }}>🔴 Gap Found</div>
+                </div>
+              </div>
+            </div>
 
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <div className="card-header">
-            <div className="card-title">Energy Storage System</div>
-            <span className="btn-details">Details</span>
-          </div>
-          <div className="metrics-grid">
-            <div>
-              <div className="metric-label">Storage Energy Load</div>
-              <div className="metric-value">
-                20.05<span className="metric-sm-unit">kWh</span>
+            <div className="glass-panel" style={{ padding: '1.25rem', cursor: 'pointer' }} onClick={() => setShowWeatherModal(true)}>
+              <div className="card-header">
+                <div className="card-title">Weather</div>
+                <span className="btn-details">Details</span>
+              </div>
+              <div className="weather-row">
+                <span style={{ fontSize: '1.3rem' }}>{weatherData.emoji}</span>
+                <span className="temp-big">{weatherData.temp}°C</span>
+                <span className="weather-tag">HUMIDITY {weatherData.humidity}%</span>
               </div>
             </div>
-            <div>
-              <div className="metric-label">Renewable Retention Load</div>
-              <div className="metric-value green">
-                12.80<span className="metric-sm-unit">kWh</span>
+
+            <div className="glass-panel" style={{ padding: '1.25rem' }}>
+              <div className="card-header">
+                <div className="card-title">Early Warnings</div>
+                <span className="btn-details">View All</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>Chiller Maintenance Log</div>
+                    <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>Expires in 12 days</div>
+                  </div>
+                  <span className="badge-warn">ACTION</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>Water Meter Calibration</div>
+                    <div style={{ fontSize: '0.75rem', color: '#eab308' }}>Due in 30 days</div>
+                  </div>
+                  <span className="badge-warn" style={{ background: '#fef08a', color: '#854d0e', borderColor: '#fde047' }}>WARN</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>IAQ Test Report</div>
+                    <div style={{ fontSize: '0.75rem', color: '#10b981' }}>Valid (210 days left)</div>
+                  </div>
+                  <span className="badge-ok">OK</span>
+                </div>
               </div>
             </div>
-            <div>
-              <div className="metric-label">On-Site The Load</div>
-              <div className="metric-value">
-                7.21<span className="metric-sm-unit">kWh</span>
-              </div>
-            </div>
-            <div>
-              <div className="metric-label">Flexible Regulation Power</div>
-              <div className="metric-value green">
-                48.1<span className="metric-sm-unit">kWh</span>
-              </div>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       <div className="right-panel">
         <div className="glass-panel" style={{ padding: '1.25rem' }}>
           <div className="copilot-header">
-            <div className="copilot-icon">⚡</div>
+            <div className="copilot-icon">🧠</div>
             <div>
-              <div className="copilot-title">GreenRE Copilot</div>
-              <div className="copilot-sub">AI Gap Analysis</div>
+              <div className="copilot-title">AI Gap Identification</div>
+              <div className="copilot-sub">Evidence & Anomaly Tracking</div>
             </div>
           </div>
 
@@ -274,9 +368,9 @@ export default function DashboardPage() {
             <div className="alert-content">
               <span className="alert-icon">⚠️</span>
               <div>
-                <div className="alert-title">High Load Detected — Zone C</div>
+                <div className="alert-title">Non-compliant Trend (WE-1)</div>
                 <div className="alert-desc">
-                  Offices (L4–L12) off-hour HVAC consumption exceeds GreenRE baseline by 18%.
+                  Night-time water baseline flow detected at 50 LPM. Possible leak. No recent inspection evidence found in RAG index.
                 </div>
               </div>
             </div>
@@ -284,16 +378,18 @@ export default function DashboardPage() {
 
           <div className="reco-box">
             <div className="reco-header">
-              <span className="reco-label">AI Recommendation</span>
-              <span className="reco-tag">AUTO-FIX READY</span>
+              <span className="reco-label">Action Recommendation</span>
+              <span className="reco-tag">TEAMS APPROVAL</span>
             </div>
-            <div className="reco-text">
-              Re-align BMS AHU setback schedules for office floors L4–L12 past 19:00.
+            <div className="reco-text" style={{ fontSize: '0.85rem' }}>
+              <b>Owner:</b> Facility Manager<br/>
+              <b>Action:</b> Dispatch inspection for Zone C water mains and upload maintenance evidence pack.<br/>
+              <b>Priority:</b> High
             </div>
           </div>
 
           <button onClick={applyRemediation} className="btn-remediation" type="button">
-            Apply Remediation
+            Approve Action in Teams
           </button>
 
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
@@ -331,7 +427,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="bottom-pills">
-        {['EE', 'WE', 'IEQ', 'CE'].map((tab) => (
+        {['Dashboard', 'Reserve Management', 'Waste Management', 'CE'].map((tab) => (
           <button
             key={tab}
             type="button"
@@ -342,6 +438,34 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
+
+      {showWeatherModal && (
+        <div className="weather-modal-overlay" onClick={() => setShowWeatherModal(false)}>
+          <div className="weather-modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="weather-modal-header">
+              <h2>Hourly Forecast</h2>
+              <button className="weather-modal-close" onClick={() => setShowWeatherModal(false)}>✕</button>
+            </div>
+            
+            <div className="weather-hourly-list">
+              {weatherData.forecast && weatherData.forecast.length > 0 ? (
+                weatherData.forecast.map((hour, idx) => (
+                  <div key={idx} className="weather-hourly-item">
+                    <span className="wh-time">{hour.time}</span>
+                    <span className="wh-emoji">{hour.emoji}</span>
+                    <span className="wh-temp">{hour.temp}°C</span>
+                    <span className="wh-rain">{hour.rainProb > 0 ? `🌧️ ${hour.rainProb}%` : ''}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
+                  No forecast data available.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
