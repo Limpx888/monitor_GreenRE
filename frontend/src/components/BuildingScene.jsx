@@ -1,31 +1,74 @@
-import React from 'react';
+import React, { Component, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, ContactShadows } from '@react-three/drei';
+import { ContactShadows, OrbitControls } from '@react-three/drei';
 import TowerModel from './TowerModel';
 
-export default function BuildingScene({ selectedZone, onSelect }) {
+class WebGLBoundary extends Component {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(err) {
+    console.error('WebGL scene failed:', err);
+    this.props.onFail?.();
+  }
+
+  render() {
+    if (this.state.failed) return null;
+    return this.props.children;
+  }
+}
+
+export default function BuildingScene({ selectedZone, onSelect, onFail }) {
   return (
-    <div className="w-full h-full absolute inset-0">
-      <Canvas
-        orthographic
-        camera={{ position: [20, 20, 20], zoom: 45, near: 0.1, far: 1000 }}
-        gl={{ antialias: true }}
+    <WebGLBoundary onFail={onFail}>
+      <div
+        className="webgl-scene"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+        }}
       >
-        <color attach="background" args={['#f8fafc']} />
-        <ambientLight intensity={1.2} />
-        <directionalLight
-          position={[15, 25, 15]}
-          intensity={1.5}
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-        />
-        <pointLight position={[-10, 10, -10]} intensity={0.5} />
-        
-        <TowerModel selectedZone={selectedZone} onSelect={onSelect} />
-        
-        <ContactShadows position={[0, 0, 0]} opacity={0.4} scale={20} blur={2} far={4.5} />
-        <OrbitControls enableZoom enablePan minPolarAngle={0} maxPolarAngle={Math.PI / 2.1} />
-      </Canvas>
-    </div>
+        <Canvas
+          camera={{ position: [10, 6.5, 10], fov: 40, near: 0.1, far: 500 }}
+          dpr={[1, 1.75]}
+          gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+          style={{ width: '100%', height: '100%', display: 'block', background: 'transparent' }}
+          onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
+          }}
+        >
+          <ambientLight intensity={1.15} />
+          <directionalLight position={[12, 18, 8]} intensity={1.7} castShadow />
+          <directionalLight position={[-8, 6, -6]} intensity={0.4} color="#93c5fd" />
+          <hemisphereLight intensity={0.35} groundColor="#e2e8f0" />
+
+          <Suspense fallback={null}>
+            <TowerModel selectedZone={selectedZone} onSelect={onSelect} />
+            <ContactShadows
+              position={[0, -2.6, 0]}
+              opacity={0.35}
+              scale={16}
+              blur={2.4}
+              far={8}
+            />
+          </Suspense>
+
+          <OrbitControls
+            makeDefault
+            enableDamping
+            target={[0, 1.4, 0]}
+            minDistance={4}
+            maxDistance={28}
+            minPolarAngle={0.15}
+            maxPolarAngle={Math.PI / 2.05}
+          />
+        </Canvas>
+      </div>
+    </WebGLBoundary>
   );
 }

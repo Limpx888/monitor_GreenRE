@@ -1,113 +1,144 @@
-import React, { useState, useMemo } from 'react';
-import { Html } from '@react-three/drei';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useGLTF } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { ZONES } from '../data/zones';
 
-function BuildingZone({ id, name, position, args, color, selectedZone, onSelect, metrics }) {
-  const [hovered, setHovered] = useState(false);
-  const isSelected = selectedZone === id;
+const MESH_TO_ZONE = {
+  Zone_A_ME_Plant: 'zone-a',
+  Zone_B_Podium: 'zone-b',
+  Zone_C_Offices: 'zone-c',
+  Zone_D_Hyatt_Hotel: 'zone-d',
+  Zone_E_Amenities: 'zone-e',
+};
 
-  const geometry = useMemo(() => new THREE.BoxGeometry(args[0], args[1], args[2]), [args[0], args[1], args[2]]);
+/** Primary floor page for each GreenRE zone mesh click */
+const ZONE_TO_FLOOR = {
+  'zone-a': 'lg-lm',
+  'zone-b': 'gf',
+  'zone-c': 'l4-12',
+  'zone-d': 'l14-28',
+  'zone-e': 'l30-31',
+};
 
-  return (
-    <group position={position}>
-      <mesh
-        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
-        onPointerOut={() => setHovered(false)}
-        onClick={(e) => { e.stopPropagation(); onSelect(id); }}
-      >
-        <primitive object={geometry} attach="geometry" />
-        <meshPhysicalMaterial
-          color={isSelected ? '#0f766e' : hovered ? '#14b8a6' : color}
-          transparent
-          opacity={hovered || isSelected ? 0.9 : 0.8}
-          roughness={0.1}
-          metalness={0.1}
-          clearcoat={1.0}
-        />
-        
-        {/* Wireframe overlay to look more like a blueprint/tech model */}
-        <lineSegments>
-          <edgesGeometry args={[geometry]} />
-          <lineBasicMaterial color={isSelected ? '#ffffff' : '#94a3b8'} opacity={isSelected ? 0.5 : 0.2} transparent />
-        </lineSegments>
-      </mesh>
+const ZONE_META = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 
-      {/* Floating 3D HTML Label */}
-      <Html position={[args[0] / 2 + 1.2, 0, 0]} distanceFactor={15} center zIndexRange={[100, 0]}>
-        <div style={{ display: hovered || isSelected ? 'block' : 'none' }}>
-          <div className="bg-white/95 backdrop-blur-xl p-4 rounded-2xl shadow-2xl border border-teal-100/50 w-56 text-xs font-sans pointer-events-none transition-all duration-300 transform scale-100 origin-left">
-            <div className="flex justify-between items-center mb-2">
-              <span className="font-extrabold text-slate-800 text-sm">{name}</span>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-bold tracking-wider ${
-                metrics.status === 'warning' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-teal-50 text-teal-600 border border-teal-200'
-              }`}>
-                {metrics.status.toUpperCase()}
-              </span>
-            </div>
-            <div className="flex justify-between items-end">
-               <span className="text-slate-500 font-medium">Energy Load</span>
-               <span className="font-black text-slate-800 text-lg">{metrics.energy}</span>
-            </div>
-          </div>
-        </div>
-      </Html>
-    </group>
-  );
+function findZoneId(object) {
+  let cur = object;
+  while (cur) {
+    if (MESH_TO_ZONE[cur.name]) return MESH_TO_ZONE[cur.name];
+    cur = cur.parent;
+  }
+  return null;
 }
 
+/**
+ * Blender Light Exchange digital twin (LightExchange_DigitalTwin.glb)
+ */
 export default function TowerModel({ selectedZone, onSelect }) {
+  const groupRef = useRef();
+  const navigate = useNavigate();
+  const { scene } = useGLTF('/LightExchange_DigitalTwin.glb');
+
+  const model = useMemo(() => {
+    const root = scene.clone(true);
+    root.traverse((obj) => {
+      if (!obj.isMesh) return;
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      if (obj.material) {
+        obj.material = obj.material.clone();
+        obj.userData.baseColor = obj.material.color?.clone?.() || new THREE.Color('#94a3b8');
+        obj.userData.baseOpacity = obj.material.opacity ?? 1;
+        // Keep glass readable but not invisible
+        if (obj.name.includes('Glass') || obj.name.startsWith('Mullion_')) {
+          obj.material.transparent = true;
+          obj.material.opacity = Math.min(obj.material.opacity ?? 1, 0.35);
+          obj.material.depthWrite = false;
+        }
+      }
+      const zoneId = MESH_TO_ZONE[obj.name];
+      if (zoneId) {
+        obj.userData.zoneId = zoneId;
+        obj.material.transparent = true;
+        obj.material.opacity = 0.92;
+      }
+    });
+    return root;
+  }, [scene]);
+
+  // Fit Blender metres (~130 tall) into dashboard view
+  const fit = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 7.5 / maxDim;
+    return {
+      scale,
+      position: [-center.x * scale, -center.y * scale + 1.2, -center.z * scale],
+      height: size.y * scale,
+    };
+  }, [model]);
+
+  // Highlight selected zone meshes
+  useEffect(() => {
+    model.traverse((obj) => {
+      if (!obj.isMesh || !obj.material || !obj.userData.zoneId) return;
+      const active = obj.userData.zoneId === selectedZone;
+      const warn = ZONE_META[obj.userData.zoneId]?.status === 'warn';
+      if (active) {
+        obj.material.color.set('#0f766e');
+        obj.material.opacity = 1;
+        obj.material.emissive = new THREE.Color('#0d9488');
+        obj.material.emissiveIntensity = 0.25;
+      } else {
+        obj.material.color.copy(obj.userData.baseColor);
+        // Keep zone palette vivid for dashboard
+        const zColor = ZONE_META[obj.userData.zoneId]?.color;
+        if (zColor) obj.material.color.set(zColor);
+        obj.material.opacity = warn ? 0.95 : 0.88;
+        if (obj.material.emissive) {
+          obj.material.emissive.set('#000000');
+          obj.material.emissiveIntensity = 0;
+        }
+      }
+    });
+  }, [model, selectedZone]);
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.12) * 0.05;
+    }
+  });
+
   return (
-    <group position={[0, -2, 0]}>
-      <BuildingZone
-        id="zone-a"
-        name="M&E (B2-LG)"
-        position={[0, 0.4, 0]}
-        args={[4.5, 0.8, 3.5]}
-        color="#f8fafc"
-        selectedZone={selectedZone}
-        onSelect={onSelect}
-        metrics={{ energy: '92 kWh', status: 'normal' }}
-      />
-      <BuildingZone
-        id="zone-b"
-        name="Podium (GF-L3)"
-        position={[0, 1.5, 0]}
-        args={[4.2, 1.2, 3.2]}
-        color="#f1f5f9"
-        selectedZone={selectedZone}
-        onSelect={onSelect}
-        metrics={{ energy: '185 kWh', status: 'normal' }}
-      />
-      <BuildingZone
-        id="zone-c"
-        name="Offices (L4-L12)"
-        position={[0, 3.2, 0]}
-        args={[3.2, 2.0, 2.4]}
-        color="#ccfbf1"
-        selectedZone={selectedZone}
-        onSelect={onSelect}
-        metrics={{ energy: '310 kWh', status: 'warning' }}
-      />
-      <BuildingZone
-        id="zone-d"
-        name="Hyatt (L14-L28)"
-        position={[0, 5.8, 0]}
-        args={[3.0, 3.0, 2.2]}
-        color="#f8fafc"
-        selectedZone={selectedZone}
-        onSelect={onSelect}
-        metrics={{ energy: '420 kWh', status: 'normal' }}
-      />
-      <BuildingZone
-        id="zone-e"
-        name="Amenities (L29-L31)"
-        position={[0, 7.6, 0]}
-        args={[2.8, 0.6, 2.0]}
-        color="#f1f5f9"
-        selectedZone={selectedZone}
-        onSelect={onSelect}
-        metrics={{ energy: '140 kWh', status: 'normal' }}
-      />
+    <group
+      ref={groupRef}
+      scale={fit.scale}
+      position={fit.position}
+      onClick={(e) => {
+        e.stopPropagation();
+        const zoneId = findZoneId(e.object);
+        if (!zoneId) return;
+        onSelect(zoneId);
+        const floorId = ZONE_TO_FLOOR[zoneId];
+        if (floorId) navigate(`/floor/${floorId}`);
+      }}
+      onPointerOver={(e) => {
+        const zoneId = findZoneId(e.object);
+        if (zoneId) document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = 'default';
+      }}
+    >
+      <primitive object={model} />
     </group>
   );
 }
+
+useGLTF.preload('/LightExchange_DigitalTwin.glb');

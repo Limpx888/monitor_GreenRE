@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "labelCount": 11,
+  "backVisible": true,
+  "errors": [],
+  "screenshots": {
+    "blank": "C:\\Users\\User\\Documents\\Competition Project\\AI4Sustainability Hackfest\\frontend\\test-output\\floor-blank.png",
+    "dashboard": "C:\\Users\\User\\Documents\\Competition Project\\AI4Sustainability Hackfest\\frontend\\test-output\\dashboard-labels.png"
+  }
+}
