@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
-import FloorLabels from '../components/FloorLabels';
 import NilmTimeSeriesChart from '../components/NilmTimeSeriesChart';
 import { ZONES } from '../data/zones';
 
@@ -283,15 +282,6 @@ export default function DashboardPage() {
             />
           </ErrorBoundaryCanvas>
         </div>
-
-        <FloorLabels
-          selectedZone={selectedZone}
-          onHoverZone={(zoneId) => {
-            if (zoneId) setSelectedZone(zoneId);
-          }}
-          anomalyFloor={complianceGap?.detected ? complianceGap.anomaly_floor : null}
-        />
-
         {/* Hover tooltip for 3D building zones */}
         {!glFailed && hoveredZone && (
           <div
@@ -866,7 +856,13 @@ export default function DashboardPage() {
             key={tab}
             type="button"
             className={`pill-btn ${activeTab === tab ? 'active' : 'inactive'}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              if (tab === 'Reserve Management') {
+                navigate('/reservations');
+              } else {
+                setActiveTab(tab);
+              }
+            }}
           >
             {tab}
           </button>

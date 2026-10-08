@@ -1,0 +1,1051 @@
+[
+  {
+    "name": "LightExchange_Root",
+    "type": "EMPTY",
+    "z": 0.0,
+    "cols": [
+      "Scene Collection"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Facade_Main_Glass",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Glass_Curtain"
+    ]
+  },
+  {
+    "name": "Facade_Podium_Glass",
+    "type": "MESH",
+    "z": 21.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Glass_Curtain"
+    ]
+  },
+  {
+    "name": "Mullion_H_0",
+    "type": "MESH",
+    "z": 28.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_1",
+    "type": "MESH",
+    "z": 31.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_2",
+    "type": "MESH",
+    "z": 35.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_3",
+    "type": "MESH",
+    "z": 38.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_4",
+    "type": "MESH",
+    "z": 42.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_5",
+    "type": "MESH",
+    "z": 45.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_6",
+    "type": "MESH",
+    "z": 49.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_7",
+    "type": "MESH",
+    "z": 52.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_8",
+    "type": "MESH",
+    "z": 56.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_9",
+    "type": "MESH",
+    "z": 59.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_10",
+    "type": "MESH",
+    "z": 63.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_11",
+    "type": "MESH",
+    "z": 66.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_12",
+    "type": "MESH",
+    "z": 70.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_13",
+    "type": "MESH",
+    "z": 73.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_14",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_15",
+    "type": "MESH",
+    "z": 80.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_16",
+    "type": "MESH",
+    "z": 84.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_17",
+    "type": "MESH",
+    "z": 87.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_18",
+    "type": "MESH",
+    "z": 91.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_19",
+    "type": "MESH",
+    "z": 94.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_20",
+    "type": "MESH",
+    "z": 98.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_21",
+    "type": "MESH",
+    "z": 101.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_22",
+    "type": "MESH",
+    "z": 105.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_23",
+    "type": "MESH",
+    "z": 108.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_24",
+    "type": "MESH",
+    "z": 112.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_25",
+    "type": "MESH",
+    "z": 115.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_26",
+    "type": "MESH",
+    "z": 119.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_27",
+    "type": "MESH",
+    "z": 122.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_H_28",
+    "type": "MESH",
+    "z": 126.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_0",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_1",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_2",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_3",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_4",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_5",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_6",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_7",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VF_8",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_0",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_1",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_2",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_3",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_4",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_5",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Mullion_VS_6",
+    "type": "MESH",
+    "z": 77.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Facade_Crown_Slope",
+    "type": "MESH",
+    "z": 14.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Mullion_Metal"
+    ]
+  },
+  {
+    "name": "Facade_Secondary_Tower",
+    "type": "MESH",
+    "z": 41.5,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Glass_Curtain"
+    ]
+  },
+  {
+    "name": "Sec_Band_0",
+    "type": "MESH",
+    "z": 16.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "White_Band"
+    ]
+  },
+  {
+    "name": "Sec_Band_4",
+    "type": "MESH",
+    "z": 30.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "White_Band"
+    ]
+  },
+  {
+    "name": "Sec_Band_8",
+    "type": "MESH",
+    "z": 44.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "White_Band"
+    ]
+  },
+  {
+    "name": "Sec_Band_12",
+    "type": "MESH",
+    "z": 58.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "White_Band"
+    ]
+  },
+  {
+    "name": "Facade_Link_Podium",
+    "type": "MESH",
+    "z": 20.0,
+    "cols": [
+      "01_Exterior"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Zone_A_ME_Plant",
+    "type": "MESH",
+    "z": 7.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_ME"
+    ]
+  },
+  {
+    "name": "Zone_B_Podium",
+    "type": "MESH",
+    "z": 21.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_Podium"
+    ]
+  },
+  {
+    "name": "Zone_C_Offices",
+    "type": "MESH",
+    "z": 43.75,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_Office_Warn"
+    ]
+  },
+  {
+    "name": "Zone_ME_L13",
+    "type": "MESH",
+    "z": 61.25,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_ME"
+    ]
+  },
+  {
+    "name": "Zone_D_Hyatt_Hotel",
+    "type": "MESH",
+    "z": 89.25,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_Hotel"
+    ]
+  },
+  {
+    "name": "Zone_E_Amenities",
+    "type": "MESH",
+    "z": 120.75,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": [
+      "Zone_Amenities"
+    ]
+  },
+  {
+    "name": "Anchor_ZoneA",
+    "type": "EMPTY",
+    "z": -7.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Anchor_ZoneB",
+    "type": "EMPTY",
+    "z": 7.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Anchor_ZoneC",
+    "type": "EMPTY",
+    "z": 28.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Anchor_ZoneD",
+    "type": "EMPTY",
+    "z": 70.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Anchor_ZoneE",
+    "type": "EMPTY",
+    "z": 108.0,
+    "cols": [
+      "02_GreenRE_Zones"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Core_Vertical_Circulation",
+    "type": "MESH",
+    "z": 63.0,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Vertical_Core"
+    ]
+  },
+  {
+    "name": "Core_Hotel_BOH_L",
+    "type": "MESH",
+    "z": 89.25,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Zone_Hotel_BOH"
+    ]
+  },
+  {
+    "name": "Core_Hotel_BOH_R",
+    "type": "MESH",
+    "z": 89.25,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Zone_Hotel_BOH"
+    ]
+  },
+  {
+    "name": "Slab_0",
+    "type": "MESH",
+    "z": 14.0,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Slab_1",
+    "type": "MESH",
+    "z": 28.0,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Slab_2",
+    "type": "MESH",
+    "z": 59.5,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Slab_3",
+    "type": "MESH",
+    "z": 63.0,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Slab_4",
+    "type": "MESH",
+    "z": 115.5,
+    "cols": [
+      "03_Core_Structure"
+    ],
+    "mats": [
+      "Podium_Concrete"
+    ]
+  },
+  {
+    "name": "Plaza_Ground",
+    "type": "MESH",
+    "z": 0.0,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Plaza"
+    ]
+  },
+  {
+    "name": "Street",
+    "type": "MESH",
+    "z": 0.0,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Road"
+    ]
+  },
+  {
+    "name": "TreeTrunk_0",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_0",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_1",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_1",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_2",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_2",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_3",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_3",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_4",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_4",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_5",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_5",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_6",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_6",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_7",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_7",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "TreeTrunk_8",
+    "type": "MESH",
+    "z": 1.75,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": []
+  },
+  {
+    "name": "TreeCanopy_8",
+    "type": "MESH",
+    "z": 4.5,
+    "cols": [
+      "04_Environment"
+    ],
+    "mats": [
+      "Foliage"
+    ]
+  },
+  {
+    "name": "Sun_Dusk",
+    "type": "LIGHT",
+    "z": 80.0,
+    "cols": [
+      "05_Camera_Lights"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Lobby_Glow",
+    "type": "LIGHT",
+    "z": 8.0,
+    "cols": [
+      "05_Camera_Lights"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Rim_Light",
+    "type": "LIGHT",
+    "z": 60.0,
+    "cols": [
+      "05_Camera_Lights"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Cam_Hero",
+    "type": "CAMERA",
+    "z": 55.0,
+    "cols": [
+      "05_Camera_Lights"
+    ],
+    "mats": []
+  },
+  {
+    "name": "Cam_Dashboard",
+    "type": "CAMERA",
+    "z": 55.0,
+    "cols": [
+      "05_Camera_Lights"
+    ],
+    "mats": []
+  }
+]
