@@ -1,0 +1,53 @@
+{
+  "model_architecture": "Seq2Point_1D_CNN",
+  "input_seq_length": 24,
+  "output_dim": 4,
+  "target_zones": [
+    "Office_Power",
+    "Hotel_Power",
+    "Podium_Power",
+    "ME_Power"
+  ],
+  "norm_params": {
+    "x_mean": 1006.9993286132812,
+    "x_std": 256.3277587890625,
+    "y_mean": [
+      310.0063781738281,
+      419.99951171875,
+      184.99900817871094,
+      92.00021362304688
+    ],
+    "y_std": [
+      107.48674774169922,
+      123.24983978271484,
+      65.9931869506836,
+      27.594133377075195
+    ]
+  },
+  "zone_mapping": {
+    "office": {
+      "id": "zone-c",
+      "name": "Offices",
+      "floors": "L4\u2013L12",
+      "nominal": 310.0
+    },
+    "hotel": {
+      "id": "zone-d",
+      "name": "Hyatt Hotel",
+      "floors": "L14\u2013L28",
+      "nominal": 420.0
+    },
+    "podium": {
+      "id": "zone-b",
+      "name": "Podium",
+      "floors": "GF\u2013L3",
+      "nominal": 185.0
+    },
+    "me_plant": {
+      "id": "zone-a",
+      "name": "M&E Plant",
+      "floors": "B2\u2013LG",
+      "nominal": 92.0
+    }
+  }
+}

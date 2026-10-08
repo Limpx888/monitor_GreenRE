@@ -44,7 +44,7 @@ function findZoneId(object) {
 /**
  * Blender Light Exchange digital twin (LightExchange_DigitalTwin.glb)
  */
-export default function TowerModel({ selectedZone, onSelect, onHover }) {
+export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFloor, anomalyZone }) {
   const groupRef = useRef();
   const hoveredZoneRef = useRef(null);
   const navigate = useNavigate();
@@ -145,6 +145,27 @@ export default function TowerModel({ selectedZone, onSelect, onHover }) {
   useFrame((state) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.12) * 0.05;
+    }
+
+    // 3D Model State Control: Anomaly Floor Flashing Red Warning (e.g. L14 -> Zone D Hotel)
+    if (anomalyFloor || anomalyZone) {
+      const isTarget = (zid) => {
+        if (anomalyZone && zid === anomalyZone) return true;
+        if (anomalyFloor === 'L14' && zid === 'zone-d') return true;
+        return false;
+      };
+
+      const pulse = (Math.sin(state.clock.elapsedTime * 7.0) + 1.0) / 2.0; // 0 to 1 strobe
+      model.traverse((obj) => {
+        if (!obj.isMesh || !obj.material || !obj.userData.zoneId) return;
+        if (isTarget(obj.userData.zoneId)) {
+          obj.material.color.setRGB(0.95 + pulse * 0.05, 0.08 * (1 - pulse), 0.18 * (1 - pulse));
+          if (!obj.material.emissive) obj.material.emissive = new THREE.Color();
+          obj.material.emissive.setRGB(0.85 * pulse, 0.02, 0.06);
+          obj.material.emissiveIntensity = 0.35 + pulse * 0.75;
+          obj.material.opacity = 0.98;
+        }
+      });
     }
   });
 

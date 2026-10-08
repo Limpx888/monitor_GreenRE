@@ -21,7 +21,7 @@ class WebGLBoundary extends Component {
   }
 }
 
-export default function BuildingScene({ selectedZone, onSelect, onFail, onHover }) {
+export default function BuildingScene({ selectedZone, onSelect, onFail, onHover, anomalyFloor, anomalyZone }) {
   return (
     <WebGLBoundary onFail={onFail}>
       <div
@@ -48,7 +48,13 @@ export default function BuildingScene({ selectedZone, onSelect, onFail, onHover 
           <hemisphereLight intensity={0.35} groundColor="#e2e8f0" />
 
           <Suspense fallback={null}>
-            <TowerModel selectedZone={selectedZone} onSelect={onSelect} onHover={onHover} />
+            <TowerModel
+              selectedZone={selectedZone}
+              onSelect={onSelect}
+              onHover={onHover}
+              anomalyFloor={anomalyFloor}
+              anomalyZone={anomalyZone}
+            />
             <ContactShadows
               position={[0, -2.6, 0]}
               opacity={0.35}

@@ -4,11 +4,11 @@ import { ZONES } from '../data/zones';
 /**
  * Always-visible layered tower (no WebGL). Guarantees the center is never blank.
  */
-export default function CssTower({ selectedZone, onSelect }) {
+export default function CssTower({ selectedZone, onSelect, zonesData = ZONES }) {
   return (
     <div className="css-tower-wrap" aria-label="Light Exchange building zones">
       <div className="css-tower">
-        {[...ZONES].reverse().map((zone) => {
+        {[...zonesData].reverse().map((zone) => {
           const selected = selectedZone === zone.id;
           const height = Math.max(36, zone.h * 42);
           const width = 70 + zone.w * 18;
