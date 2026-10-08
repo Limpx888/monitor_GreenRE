@@ -2,9 +2,9 @@ import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
-import FloorLabels from '../components/FloorLabels';
 import NilmChart from '../components/NilmChart';
 import ZoneBreakdown from '../components/ZoneBreakdown';
+import BmsTelemetryDrawer from '../components/BmsTelemetryDrawer';
 import { ZONES } from '../data/zones';
 
 export default function DashboardPage() {
@@ -14,7 +14,10 @@ export default function DashboardPage() {
   const [hoveredZone, setHoveredZone] = useState(null);
   const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [actionSuccess, setActionSuccess] = useState(false);
-  
+  const [isBmsDrawerOpen, setIsBmsDrawerOpen] = useState(false);
+  const [bmsTelemetry, setBmsTelemetry] = useState(null);
+  const [bmsLoading, setBmsLoading] = useState(false);
+
   // Step 1: Centralized Global "Time Machine" & NILM State (Single Source of Truth)
   const [selectedScenario, setSelectedScenario] = useState('cool_night_gap');
   const [currentTime, setCurrentTime] = useState('03:00');
@@ -229,7 +232,7 @@ export default function DashboardPage() {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
-    
+
     if (info) {
       setHoveredZone((prev) => {
         if (prev && prev.zoneId === info.zoneId && tooltipRef.current && tooltipRef.current.matches(':hover')) {
@@ -266,6 +269,26 @@ export default function DashboardPage() {
     }
   };
 
+  const handleBmsDrillDown = async () => {
+    setBmsLoading(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/bms/telemetry?floor=${encodeURIComponent(complianceGap?.anomaly_floor || 'L14')}&timestamp=${encodeURIComponent(currentWeather.timestamp)}`
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || `BMS gateway returned ${response.status}`);
+      }
+      setBmsTelemetry(await response.json());
+      setIsBmsDrawerOpen(true);
+    } catch (error) {
+      console.error('BMS drill-down failed:', error);
+      alert(`Unable to load BMS telemetry: ${error.message}`);
+    } finally {
+      setBmsLoading(false);
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="canvas-container">
@@ -284,15 +307,6 @@ export default function DashboardPage() {
             />
           </ErrorBoundaryCanvas>
         </div>
-
-        <FloorLabels
-          selectedZone={selectedZone}
-          onHoverZone={(zoneId) => {
-            if (zoneId) setSelectedZone(zoneId);
-          }}
-          anomalyFloor={complianceGap?.detected ? complianceGap.anomaly_floor : null}
-        />
-
         {/* Hover tooltip for 3D building zones */}
         {!glFailed && hoveredZone && (
           <div
@@ -323,9 +337,8 @@ export default function DashboardPage() {
               />
               <span className="bht-name">{hoveredZone.name}</span>
               <span
-                className={`bht-badge ${
-                  hoveredZone.status === 'warn' ? 'warn' : 'ok'
-                }`}
+                className={`bht-badge ${hoveredZone.status === 'warn' ? 'warn' : 'ok'
+                  }`}
               >
                 {hoveredZone.status === 'warn' ? 'GAP' : 'OK'}
               </span>
@@ -621,7 +634,14 @@ export default function DashboardPage() {
 
           {/* 4. AI Gap Identification (Red / Amber / Green Alert Card) */}
           {complianceGap && complianceGap.attribution === 'EQUIPMENT_FAULT' ? (
-            <div className="alert-box" style={{ border: '1.5px solid #fda4af', background: 'rgba(255, 241, 242, 0.95)' }}>
+            <div
+              className="alert-box"
+              onClick={handleBmsDrillDown}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => event.key === 'Enter' && handleBmsDrillDown()}
+              style={{ border: '1.5px solid #fda4af', background: 'rgba(255, 241, 242, 0.95)', cursor: 'pointer' }}
+            >
               <div className="alert-accent" style={{ background: '#e11d48', width: '4px' }} />
               <div className="alert-content">
                 <span className="alert-icon" style={{ fontSize: '1.25rem' }}>⚠️</span>
@@ -644,6 +664,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="alert-desc" style={{ color: '#881337', marginTop: '2px', lineHeight: '1.45', fontSize: '0.68rem' }}>
                     {complianceGap.explanation}
+                  </div>
+                  <div style={{ color: '#9f1239', fontSize: '0.62rem', fontWeight: 800, marginTop: '6px' }}>
+                    {bmsLoading ? 'Loading BMS gateway…' : 'Click to open L14 BMS drill-down →'}
                   </div>
                 </div>
               </div>
@@ -693,8 +716,8 @@ export default function DashboardPage() {
               <span className="reco-tag">TEAMS APPROVAL</span>
             </div>
             <div className="reco-text" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-              <b>Target:</b> {complianceGap?.detected ? `Hyatt Hotel (${complianceGap.anomaly_floor})` : 'Whole Tower'}<br/>
-              <b>Directive:</b> {complianceGap?.action_recommendation || 'Continuous monitoring active across sub-meters.'}<br/>
+              <b>Target:</b> {complianceGap?.detected ? `Hyatt Hotel (${complianceGap.anomaly_floor})` : 'Whole Tower'}<br />
+              <b>Directive:</b> {complianceGap?.action_recommendation || 'Continuous monitoring active across sub-meters.'}<br />
               <b>Attribution:</b> <span style={{ color: complianceGap?.detected ? '#e11d48' : (complianceGap?.attribution === 'WEATHER_DRIVEN' ? '#d97706' : '#0d9488'), fontWeight: 800 }}>
                 {complianceGap?.attribution || 'NORMAL'}
               </span>
@@ -769,7 +792,13 @@ export default function DashboardPage() {
             key={tab}
             type="button"
             className={`pill-btn ${activeTab === tab ? 'active' : 'inactive'}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              if (tab === 'Reserve Management') {
+                navigate('/reservations');
+              } else {
+                setActiveTab(tab);
+              }
+            }}
           >
             {tab}
           </button>
@@ -783,7 +812,7 @@ export default function DashboardPage() {
               <h2>Hourly Forecast</h2>
               <button className="weather-modal-close" onClick={() => setShowWeatherModal(false)}>✕</button>
             </div>
-            
+
             <div className="weather-hourly-list">
               {currentWeather.forecast && currentWeather.forecast.length > 0 ? (
                 currentWeather.forecast.map((hour, idx) => (
@@ -799,6 +828,11 @@ export default function DashboardPage() {
                   No forecast data available.
                 </div>
               )}
+              <BmsTelemetryDrawer
+                isOpen={isBmsDrawerOpen}
+                data={bmsTelemetry}
+                onClose={() => setIsBmsDrawerOpen(false)}
+              />
             </div>
           </div>
         </div>

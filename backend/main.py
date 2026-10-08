@@ -11,11 +11,13 @@ Features:
 import os
 import json
 import pickle
+import csv
 import numpy as np
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from rag_engine import BmsRagMapper
 
 # -------------------------------------------------------------
 # 1. 2-Channel 1D-CNN Seq2Point Inference Engine
@@ -157,6 +159,18 @@ WEIGHTS_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_weights.pth')
 META_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_meta.json')
 
 nilm_engine = EcoPulseNILMWeatherEngine(WEIGHTS_PATH, META_PATH)
+
+DATA_DIR = os.path.join(BASE_DIR, "data")
+SENSOR_CSV_PATH = os.path.join(DATA_DIR, "ahu_fault_damper_stuck.csv")
+MANUAL_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "LBNLDataSynthesisInventory.pdf"))
+rag_mapper = None
+cached_schema = None
+
+
+@app.on_event("startup")
+async def startup_rag_engine():
+    global rag_mapper
+    rag_mapper = BmsRagMapper(MANUAL_PATH)
 
 # Preset Historical Time Machine Scenarios from BDG2
 TIME_MACHINE_SCENARIOS = {
@@ -323,6 +337,58 @@ def health_check():
         "weights_path": WEIGHTS_PATH,
         "time_machine_scenarios": list(TIME_MACHINE_SCENARIOS.keys())
     }
+
+@app.get("/api/bms/telemetry")
+def get_bms_telemetry(
+    floor: str = Query(..., min_length=1, description="Building floor, for example L14"),
+    timestamp: str = Query("2016-03-15T03:00:00")
+):
+    """Return a micro-level audit view for the floor identified by NILM."""
+    if floor.upper() != "L14":
+        return {"floor": floor, "status": "Normal", "data": None}
+
+    global cached_schema
+    try:
+        if rag_mapper is None:
+            raise RuntimeError("RAG engine is not initialized")
+        if cached_schema is None:
+            cached_schema = rag_mapper.get_dynamic_schema(SENSOR_CSV_PATH)
+
+        with open(SENSOR_CSV_PATH, "r", encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        if not rows:
+            raise ValueError("Sensor data file contains no readings")
+
+        readings = rows[-24:]
+        damper_col = cached_schema["damper_position"]
+        fan_col = cached_schema["fan_speed"]
+        telemetry_series = []
+        for index, row in enumerate(readings):
+            try:
+                telemetry_series.append({
+                    "time": row.get("time") or f"{index:02d}:00",
+                    "damper_pct": float(row[damper_col]),
+                    "fan_rpm": float(row[fan_col]),
+                })
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(f"Invalid sensor reading at row {index}: {error}") from error
+
+        return {
+            "floor": floor.upper(),
+            "status": "Critical Fault",
+            "audit_timestamp": timestamp,
+            "ai_diagnosis": "AHU Outdoor Air Damper Stuck at 100%",
+            "source": "LBNL Fault Dataset",
+            "schema_mapping": cached_schema,
+            "equipment_breakdown": [
+                {"name": "AHU (Faulty)", "value": 75},
+                {"name": "Lighting", "value": 15},
+                {"name": "Plug Loads", "value": 10},
+            ],
+            "telemetry_series": telemetry_series,
+        }
+    except (FileNotFoundError, RuntimeError, ValueError, OSError) as error:
+        raise HTTPException(status_code=500, detail=f"Integration Error: {error}") from error
 
 @app.get("/api/time-machine/scenarios")
 def get_time_machine_scenarios():

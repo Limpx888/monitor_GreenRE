@@ -49,6 +49,20 @@ node server.js
 ```
 *The API runs on `http://localhost:5000`.*
 
+The NILM and BMS drill-down gateway is a separate FastAPI service:
+```bash
+cd backend
+python -m pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
+```
+At startup, the service loads `LBNLDataSynthesisInventory.pdf` with
+`PyPDFLoader`, chunks it, embeds it with the local `all-MiniLM-L6-v2` model,
+and stores the chunks in an in-memory Chroma vector store. The L14 micro-audit
+endpoint is available at
+`http://localhost:8000/api/bms/telemetry?floor=L14`. It retrieves relevant
+manual context, discovers the damper and fan columns from the local sensor CSV,
+and caches the mapping for subsequent drill-downs.
+
 ### 3. Generate Simulated Data
 ```bash
 cd simulators
