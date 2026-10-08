@@ -1,0 +1,10 @@
+{
+  "name": "monitor-greenre-root",
+  "version": "1.0.0",
+  "description": "GreenRE Smart Operation System & NILM Digital Twin",
+  "scripts": {
+    "backend": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 5000 --reload",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "npm --prefix frontend run dev"
+  }
+}
