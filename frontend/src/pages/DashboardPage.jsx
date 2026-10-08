@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import FloorLabels from '../components/FloorLabels';
-import NilmTimeSeriesChart from '../components/NilmTimeSeriesChart';
+import NilmChart from '../components/NilmChart';
+import ZoneBreakdown from '../components/ZoneBreakdown';
 import { ZONES } from '../data/zones';
 
 export default function DashboardPage() {
@@ -612,109 +613,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 2. NILM 24H Time-Series Chart */}
-          <NilmTimeSeriesChart currentTime={currentTime} scenario={selectedScenario} />
+          {/* 🔥 2. Time-Series Visualization (Proves AI evaluates continuous data) */}
+          <NilmChart currentTime={currentTime} />
 
-          {/* 3. Live Disaggregation Breakdown (4-Zone Proportional Bar & List) */}
-          <div
-            style={{
-              background: '#ffffff',
-              padding: '0.85rem',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-              marginTop: '0.75rem',
-              marginBottom: '0.85rem'
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.74rem',
-                fontWeight: 800,
-                color: '#0f172a',
-                marginBottom: '6px'
-              }}
-            >
-              <span>Main Incoming Meter (Total)</span>
-              <span style={{ color: '#2563eb' }}>{nilmZones.total} kWh</span>
-            </div>
-
-            {/* Colorful proportional progress bar showing 4-zone proportions */}
-            <div
-              style={{
-                width: '100%',
-                display: 'flex',
-                height: '10px',
-                borderRadius: '9999px',
-                overflow: 'hidden',
-                marginBottom: '8px',
-                background: '#f1f5f9'
-              }}
-            >
-              <div
-                title={`Hotel: ${Math.round((nilmZones.hotel / nilmZones.total) * 100)}%`}
-                style={{
-                  width: `${(nilmZones.hotel / nilmZones.total) * 100}%`,
-                  background: '#ef4444',
-                  transition: 'width 0.4s ease'
-                }}
-              />
-              <div
-                title={`Offices: ${Math.round((nilmZones.office / nilmZones.total) * 100)}%`}
-                style={{
-                  width: `${(nilmZones.office / nilmZones.total) * 100}%`,
-                  background: '#3b82f6',
-                  transition: 'width 0.4s ease'
-                }}
-              />
-              <div
-                title={`Podium: ${Math.round((nilmZones.podium / nilmZones.total) * 100)}%`}
-                style={{
-                  width: `${(nilmZones.podium / nilmZones.total) * 100}%`,
-                  background: '#eab308',
-                  transition: 'width 0.4s ease'
-                }}
-              />
-              <div
-                title={`M&E: ${Math.round((nilmZones.me / nilmZones.total) * 100)}%`}
-                style={{
-                  width: `${(nilmZones.me / nilmZones.total) * 100}%`,
-                  background: '#94a3b8',
-                  transition: 'width 0.4s ease'
-                }}
-              />
-            </div>
-
-            {/* Listed values below in 2x2 grid */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '4px 8px',
-                fontSize: '0.68rem',
-                color: '#475569'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><span style={{ color: '#ef4444', fontWeight: 900 }}>●</span> Hotel</span>
-                <b>{nilmZones.hotel} kWh</b>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><span style={{ color: '#3b82f6', fontWeight: 900 }}>●</span> Offices</span>
-                <b>{nilmZones.office} kWh</b>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><span style={{ color: '#eab308', fontWeight: 900 }}>●</span> Podium</span>
-                <b>{nilmZones.podium} kWh</b>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><span style={{ color: '#94a3b8', fontWeight: 900 }}>●</span> M&E</span>
-                <b>{nilmZones.me} kWh</b>
-              </div>
-            </div>
-          </div>
+          {/* 🔥 3. Spatial Disaggregation Visualization (Proves AI virtual sub-metering) */}
+          <ZoneBreakdown zonesData={nilmZones} />
 
           {/* 4. AI Gap Identification (Red / Amber / Green Alert Card) */}
           {complianceGap && complianceGap.attribution === 'EQUIPMENT_FAULT' ? (
