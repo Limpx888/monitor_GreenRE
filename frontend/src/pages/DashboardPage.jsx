@@ -859,6 +859,8 @@ export default function DashboardPage() {
             onClick={() => {
               if (tab === 'Reserve Management') {
                 navigate('/reservations');
+              } else if (tab === 'Waste Management') {
+                navigate('/waste');
               } else {
                 setActiveTab(tab);
               }
