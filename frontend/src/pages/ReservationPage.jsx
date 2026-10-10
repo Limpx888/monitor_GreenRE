@@ -308,7 +308,7 @@ export default function ReservationPage() {
             className={`pill-btn ${tab === 'Reserve Management' ? 'active' : 'inactive'}`}
             onClick={() => {
               if (tab === 'Dashboard') navigate('/');
-              // Other tabs could be wired up here if needed
+              else if (tab === 'Waste Management') navigate('/waste');
             }}
           >
             {tab}

@@ -104,72 +104,80 @@ export default function WasteHistoryPage() {
             </tbody>
           </table>
 
-          {/* Detail panel */}
+          {/* Detail Modal */}
           {selectedScan && (
-            <div className="waste-detail-panel">
-              <div className="waste-detail-header">
-                <h3>Scan Details — {formatDate(selectedScan.created_at)}</h3>
-                <button className="waste-btn-small" onClick={() => setSelectedScan(null)}>✕</button>
-              </div>
+            <div className="waste-modal-overlay" onClick={() => setSelectedScan(null)}>
+              <div className="waste-modal" style={{ width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                <div className="waste-modal-header">
+                  <h2>Scan Details — {formatDate(selectedScan.created_at)}</h2>
+                  <button className="waste-btn-small" onClick={() => setSelectedScan(null)}>✕</button>
+                </div>
+                <div className="waste-modal-body">
+                  {selectedScan.annotated_image_path ? (
+                    <img
+                      src={`/api/v1/uploads/${selectedScan.annotated_image_path}`}
+                      alt="Annotated"
+                      className="waste-detail-img"
+                      style={{ width: '100%', borderRadius: '12px', marginBottom: '16px', objectFit: 'cover', maxHeight: '400px' }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '200px', background: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', marginBottom: '16px', border: '1px dashed #cbd5e1' }}>
+                      <p>📸 No image available for this demo scan.</p>
+                    </div>
+                  )}
 
-              {selectedScan.annotated_image_path && (
-                <img
-                  src={`/api/v1/uploads/${selectedScan.annotated_image_path}`}
-                  alt="Annotated"
-                  className="waste-detail-img"
-                />
-              )}
-
-              <div className="waste-detection-list compact">
-                {(selectedScan.detections || []).map((det, i) => (
-                  <div key={det.id || i} className={`waste-detection-card compact ${det.is_deleted ? 'deleted' : ''}`}>
-                    <span className="waste-detection-name">
-                      {det.corrected_class_name || det.class_name}
-                      {det.corrected_class_name && det.corrected_class_name !== det.class_name && (
-                        <span className="waste-corrected"> (was: {det.class_name})</span>
-                      )}
-                    </span>
-                    <span className="waste-badge" style={{
-                      background: det.category === 'RECYCLE' ? '#dcfce7' : det.category === 'ORGANIC' ? '#ecfccb' : '#f1f5f9',
-                    }}>
-                      {det.category}
-                    </span>
-                    <span>{Math.round(det.confidence * 100)}%</span>
-                    <span>{det.weight_source === 'MEASURED' ? '⚖️' : '~'}{(det.measured_weight_kg || det.estimated_weight_kg)?.toFixed(3)} kg</span>
-                    {det.is_deleted && <span className="waste-badge danger">Deleted</span>}
+                  <div className="waste-detection-list compact">
+                    {(selectedScan.detections || []).map((det, i) => (
+                      <div key={det.id || i} className={`waste-detection-card compact ${det.is_deleted ? 'deleted' : ''}`}>
+                        <span className="waste-detection-name">
+                          {det.corrected_class_name || det.class_name}
+                          {det.corrected_class_name && det.corrected_class_name !== det.class_name && (
+                            <span className="waste-corrected"> (was: {det.class_name})</span>
+                          )}
+                        </span>
+                        <span className="waste-badge" style={{
+                          background: det.category === 'RECYCLE' ? '#dcfce7' : det.category === 'ORGANIC' ? '#ecfccb' : '#f1f5f9',
+                        }}>
+                          {det.category}
+                        </span>
+                        <span>{Math.round(det.confidence * 100)}%</span>
+                        <span>{det.weight_source === 'MEASURED' ? '⚖️' : '~'}{(det.measured_weight_kg || det.estimated_weight_kg)?.toFixed(3)} kg</span>
+                        {det.is_deleted && <span className="waste-badge danger">Deleted</span>}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              <div className="waste-detail-actions">
-                {selectedScan.status === 'pending_review' && (
-                  <button
-                    className="waste-btn primary"
-                    onClick={async () => {
-                      await scansApi.confirm(selectedScan.id);
-                      setScans(scans.map(s => s.id === selectedScan.id ? { ...s, status: 'confirmed' } : s));
-                      setSelectedScan({ ...selectedScan, status: 'confirmed' });
-                    }}
-                  >
-                    ✅ Confirm All
-                  </button>
-                )}
-                <button
-                  className="waste-btn secondary"
-                  onClick={async () => {
-                    const labels = await scansApi.exportYolo(selectedScan.id);
-                    const text = labels.label_text;
-                    const blob = new Blob([text], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${selectedScan.id}_labels.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  📥 Export YOLO Labels
-                </button>
+                  <div className="waste-detail-actions">
+                    {selectedScan.status === 'pending_review' && (
+                      <button
+                        className="waste-btn primary"
+                        onClick={async () => {
+                          await scansApi.confirm(selectedScan.id);
+                          setScans(scans.map(s => s.id === selectedScan.id ? { ...s, status: 'confirmed' } : s));
+                          setSelectedScan({ ...selectedScan, status: 'confirmed' });
+                        }}
+                      >
+                        ✅ Confirm All
+                      </button>
+                    )}
+                    <button
+                      className="waste-btn secondary"
+                      onClick={async () => {
+                        const labels = await scansApi.exportYolo(selectedScan.id);
+                        const text = labels.label_text;
+                        const blob = new Blob([text], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${selectedScan.id}_labels.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      📥 Export YOLO Labels
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

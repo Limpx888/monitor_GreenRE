@@ -2645,3 +2645,65 @@ html, body, #root {
   color: #475569;
 }
 
+
+.waste-theme-container .waste-chart-card h3,
+.waste-theme-container .waste-section-title,
+.waste-theme-container h1,
+.waste-theme-container h2,
+.waste-theme-container h3,
+.waste-theme-container h4,
+.waste-theme-container .waste-card h3,
+.waste-theme-container .waste-card-title,
+.waste-theme-container .waste-kpi-title,
+.waste-theme-container .waste-page-header h1 {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+.waste-theme-container .waste-page-header p {
+  color: #000000 !important;
+}
+.waste-theme-container {
+  color: #000000;
+}
+
+
+.waste-theme-container .waste-greenre-card,
+.waste-theme-container .waste-form-card,
+.waste-theme-container .waste-kanban-card,
+.waste-theme-container .waste-detail-panel,
+.waste-theme-container .waste-detection-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+.waste-theme-container .waste-kanban-column {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.waste-theme-container .waste-greenre-desc,
+.waste-theme-container .waste-greenre-meta,
+.waste-theme-container .waste-kanban-desc,
+.waste-theme-container .waste-before-after {
+  color: #475569;
+}
+.waste-theme-container .waste-greenre-code,
+.waste-theme-container .waste-form-card h3,
+.waste-theme-container .waste-kanban-card h4,
+.waste-theme-container .waste-kanban-header h3,
+.waste-theme-container .waste-detail-header h3,
+.waste-theme-container .waste-detection-name,
+.waste-theme-container .waste-report-section h3,
+.waste-theme-container .waste-report-section h4 {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+.waste-theme-container .waste-form-note {
+  color: #64748b;
+}
+
+
+.waste-theme-container .waste-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
