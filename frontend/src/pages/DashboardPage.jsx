@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import NilmChart from '../components/NilmChart';
+import UtilityMainMeter from '../components/UtilityMainMeter';
 import ZoneBreakdown from '../components/ZoneBreakdown';
+import ZoneConsumptionCards from '../components/ZoneConsumptionCards';
 import BmsTelemetryDrawer from '../components/BmsTelemetryDrawer';
-import { ZONES } from '../data/zones';
+import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
 
 export default function DashboardPage() {
   const [selectedZone, setSelectedZone] = useState('zone-d');
@@ -17,6 +19,11 @@ export default function DashboardPage() {
   const [isBmsDrawerOpen, setIsBmsDrawerOpen] = useState(false);
   const [bmsTelemetry, setBmsTelemetry] = useState(null);
   const [bmsLoading, setBmsLoading] = useState(false);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const { data: liveConsumption, error: liveError, isLoading: liveLoading } = useZoneConsumption();
+  const warningZoneCodes = (liveConsumption?.zones || [])
+    .filter((zone) => zone.compliance_status === 'warning')
+    .map((zone) => zone.code);
 
   // Step 1: Centralized Global "Time Machine" & NILM State (Single Source of Truth)
   const [selectedScenario, setSelectedScenario] = useState('cool_night_gap');
@@ -196,37 +203,109 @@ export default function DashboardPage() {
         explanation: 'All 4 zones conform to GreenRE EE-1 baseline bounds under 31.8°C nominal afternoon business peak.',
         action_recommendation: 'All building zones operating in optimal energy envelope. Continuous NILM surveillance active.',
       });
+    } else if (scenario === 'nominal') {
+      setCurrentTime('Live');
+      setCurrentWeather({
+        temp: 28.4,
+        humidity: 72,
+        condition: 'Clear Sky (Nominal Operation)',
+        emoji: '☀️',
+        timestamp: new Date().toISOString(),
+        forecast: [
+          { time: '12:00', emoji: '☀️', temp: 28.5, rainProb: 5 },
+          { time: '13:00', emoji: '☀️', temp: 29.0, rainProb: 5 },
+          { time: '14:00', emoji: '☀️', temp: 29.2, rainProb: 5 },
+          { time: '15:00', emoji: '☀️', temp: 28.8, rainProb: 5 },
+          { time: '16:00', emoji: '⛅', temp: 28.0, rainProb: 10 },
+          { time: '17:00', emoji: '⛅', temp: 27.5, rainProb: 10 },
+        ],
+      });
+      setComplianceGap({
+        detected: false,
+        status_code: 'COMPLIANT',
+        clause: 'EE-1',
+        clause_title: 'Energy Efficiency Standard Met',
+        attribution: 'NORMAL',
+        anomaly_zone: null,
+        anomaly_floor: null,
+        measured_load: 45.2,
+        baseline_load: 330.0,
+        outdoor_temp: 28.4,
+        deviation_pct: 0.0,
+        severity: 'NOMINAL',
+        explanation: 'Real-time telemetry stream synchronized. All building zones operating within GreenRE compliance bounds.',
+        action_recommendation: 'Continuous IoT surveillance active across all 5 zones.',
+      });
     }
 
-    // Also synchronize live model predictions with backend
+    // Remote-control the Python simulator via the FastAPI Demo State Bus
+    const modeMap = {
+      cool_night_gap: 'l14_anomaly',
+      tropical_heatwave: 'tropical_heatwave',
+      daytime_nominal: 'nominal',
+      nominal: 'nominal',
+    };
+    const targetMode = modeMap[scenario] || scenario;
     try {
-      const res = await fetch(`http://localhost:5000/api/nilm/latest?scenario=${scenario}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'success') {
-          setNilmZones({
-            total: data.total_building_power,
-            hotel: data.zones['zone-d'].value,
-            office: data.zones['zone-c'].value,
-            podium: data.zones['zone-b'].value,
-            me: data.zones['zone-a'].value,
-          });
-          setComplianceGap(data.compliance_gap);
-        }
-      }
+      await fetch('/api/v1/demo/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: targetMode }),
+      });
     } catch (e) {
-      // Offline fallback already active
+      // Offline fallback
+    }
+
+    // Also synchronize live model predictions with backend if in historical scenarios
+    if (scenario !== 'nominal') {
+      try {
+        const res = await fetch(`http://localhost:5000/api/nilm/latest?scenario=${scenario}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'success') {
+            setNilmZones({
+              total: data.total_building_power,
+              hotel: data.zones['zone-d'].value,
+              office: data.zones['zone-c'].value,
+              podium: data.zones['zone-b'].value,
+              me: data.zones['zone-a'].value,
+            });
+            setComplianceGap(data.compliance_gap);
+          }
+        }
+      } catch (e) {
+        // Offline fallback already active
+      }
     }
   }, []);
 
-  // Compute reactive 3D zones list from nilmZones
-  const zonesData = useMemo(() => [
-    { id: 'zone-a', name: 'M&E Plant', floors: 'B2–LG', y: 0.4, h: 0.85, w: 4.6, d: 3.5, color: '#4b5563', energy: `${nilmZones.me} kWh`, status: 'ok' },
-    { id: 'zone-b', name: 'Podium', floors: 'GF–L3', y: 1.55, h: 1.2, w: 4.3, d: 3.3, color: '#94a3b8', energy: `${nilmZones.podium} kWh`, status: 'ok' },
-    { id: 'zone-c', name: 'Offices', floors: 'L4–L12', y: 3.35, h: 2.2, w: 3.2, d: 2.45, color: '#3b82f6', energy: `${nilmZones.office} kWh`, status: 'ok' },
-    { id: 'zone-d', name: 'Hyatt Hotel', floors: 'L14–L28', y: 6.05, h: 3.2, w: 3.0, d: 2.3, color: '#e11d48', energy: `${nilmZones.hotel} kWh`, status: complianceGap?.detected ? 'warn' : 'ok' },
-    { id: 'zone-e', name: 'Amenities', floors: 'L29–L31', y: 7.95, h: 0.7, w: 2.7, d: 2.05, color: '#fb7185', energy: '140 kWh', status: 'ok' },
-  ], [nilmZones, complianceGap]);
+  const liveByCode = useMemo(() => {
+    const map = {};
+    (liveConsumption?.zones || []).forEach((zone) => {
+      map[zone.code] = zone;
+    });
+    return map;
+  }, [liveConsumption]);
+
+  // Compute reactive 3D zones list from NILM, overlaid with live EMS kWh when present
+  const zonesData = useMemo(() => {
+    const energyFor = (code, fallback) => {
+      const live = liveByCode[code];
+      if (live && live.energy_kwh > 0) return `${live.energy_kwh} kWh`;
+      return `${fallback} kWh`;
+    };
+    const statusFor = (code, fallbackWarn) => {
+      if (liveByCode[code]?.compliance_status === 'warning') return 'warn';
+      return fallbackWarn ? 'warn' : 'ok';
+    };
+    return [
+      { id: 'zone-a', name: 'M&E Plant', floors: 'B2–LG', y: 0.4, h: 0.85, w: 4.6, d: 3.5, color: '#4b5563', energy: energyFor('zone-a', nilmZones.me), status: statusFor('zone-a', false) },
+      { id: 'zone-b', name: 'Podium', floors: 'GF–L3', y: 1.55, h: 1.2, w: 4.3, d: 3.3, color: '#94a3b8', energy: energyFor('zone-b', nilmZones.podium), status: statusFor('zone-b', false) },
+      { id: 'zone-c', name: 'Offices', floors: 'L4–L12', y: 3.35, h: 2.2, w: 3.2, d: 2.45, color: '#3b82f6', energy: energyFor('zone-c', nilmZones.office), status: statusFor('zone-c', false) },
+      { id: 'zone-d', name: 'Hyatt Hotel', floors: 'L14–L28', y: 6.05, h: 3.2, w: 3.0, d: 2.3, color: '#e11d48', energy: energyFor('zone-d', nilmZones.hotel), status: statusFor('zone-d', complianceGap?.detected) },
+      { id: 'zone-e', name: 'Amenities', floors: 'L29–L31', y: 7.95, h: 0.7, w: 2.7, d: 2.05, color: '#fb7185', energy: energyFor('zone-e', 140), status: statusFor('zone-e', false) },
+    ];
+  }, [nilmZones, complianceGap, liveByCode]);
 
   const handleBuildingHover = useCallback((info) => {
     if (hoverTimeoutRef.current) {
@@ -377,8 +456,22 @@ export default function DashboardPage() {
             <span className="divider-v"></span>
             <span className="score-badge">Score: 88.4 (Gold)</span>
           </div>
-          <button className="btn-evidence" type="button">
-            Prepare Evidence
+          <button
+            className="btn-evidence"
+            type="button"
+            disabled={evidenceBusy}
+            onClick={async () => {
+              setEvidenceBusy(true);
+              try {
+                await downloadGreenReEvidence();
+              } catch (error) {
+                alert(error.message || 'Unable to generate GreenRE evidence PDF.');
+              } finally {
+                setEvidenceBusy(false);
+              }
+            }}
+          >
+            {evidenceBusy ? 'Generating…' : 'Generate GreenRE Evidence'}
           </button>
         </div>
       </div>
@@ -623,14 +716,45 @@ export default function DashboardPage() {
                 <span>🏢 14:00 Nominal Afternoon</span>
                 <span style={{ fontSize: '0.6rem', background: '#99f6e4', padding: '1px 5px', borderRadius: '4px' }}>31.8°C · Peak OK</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleScenarioChange('nominal')}
+                style={{
+                  padding: '7px 9px',
+                  fontSize: '0.66rem',
+                  fontWeight: 800,
+                  borderRadius: '8px',
+                  border: '1.5px solid',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderColor: selectedScenario === 'nominal' ? '#10b981' : '#86efac',
+                  background: selectedScenario === 'nominal' ? '#dcfce7' : '#f0fdf4',
+                  color: '#15803d',
+                  transition: 'all 0.2s',
+                  marginTop: '4px',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  🟢 Resume Live / Nominal
+                </span>
+                <span style={{ fontSize: '0.6rem', background: '#bbf7d0', padding: '1px 6px', borderRadius: '4px', color: '#166534', fontWeight: 800 }}>
+                  Live Bus
+                </span>
+              </button>
             </div>
           </div>
 
           {/* 🔥 2. Time-Series Visualization (Proves AI evaluates continuous data) */}
           <NilmChart currentTime={currentTime} />
 
-          {/* 🔥 3. Spatial Disaggregation Visualization (Proves AI virtual sub-metering) */}
-          <ZoneBreakdown zonesData={nilmZones} />
+          {/* 🔥 3. Spatial Disaggregation Visualization (Single Source of Truth SWR) */}
+          <UtilityMainMeter />
+          <ZoneConsumptionCards payload={liveConsumption} loading={liveLoading} error={liveError} />
 
           {/* 4. AI Gap Identification (Red / Amber / Green Alert Card) */}
           {complianceGap && complianceGap.attribution === 'EQUIPMENT_FAULT' ? (
@@ -702,7 +826,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="alert-title" style={{ color: '#0f766e' }}>GreenRE Baseline Compliant</div>
                   <div className="alert-desc" style={{ color: '#134e4a', fontSize: '0.68rem' }}>
-                    All 4 major zones operating inside GreenRE thermal efficiency bounds. Total Utility Meter: {nilmZones.total} kWh.
+                    All building zones operating inside GreenRE thermal efficiency bounds under continuous NILM surveillance.
                   </div>
                 </div>
               </div>
@@ -738,51 +862,6 @@ export default function DashboardPage() {
           >
             {actionSuccess ? '✓ Action Dispatched to Teams' : 'Approve Action in Teams'}
           </button>
-
-          {/* Building Zones Module (Overwritten with live disaggregated predictions) */}
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '0.5rem',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.62rem',
-                  fontWeight: 800,
-                  color: '#475569',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
-                }}
-              >
-                Building Zones (NILM Disaggregated)
-              </div>
-              <span style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 600 }}>
-                Meter: <b>{nilmZones.total} kWh</b>
-              </span>
-            </div>
-            <div className="zone-list">
-              {zonesData.map((z) => (
-                <div
-                  key={z.id}
-                  className={`zone-item ${selectedZone === z.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedZone(z.id)}
-                >
-                  <div>
-                    <div className="zone-name">{z.name}</div>
-                    <div className="zone-floors">{z.floors}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span className="zone-energy" style={{ fontWeight: 800 }}>{z.energy}</span>
-                    <span className={`zone-status-dot ${z.status === 'warn' ? 'warn' : 'ok'}`} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 

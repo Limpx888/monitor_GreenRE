@@ -9,15 +9,25 @@ Features:
 """
 
 import os
+import sys
 import json
 import pickle
 import csv
+import threading
+
+# Ensure sibling modules are importable whether uvicorn is launched from
+# the backend/ dir itself or from the parent dir (e.g. `backend.main:app`).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import numpy as np
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from rag_engine import BmsRagMapper
+from database import Base, engine
+from ems_router import router as ems_router
+from seed import seed_physical_mapping
 
 # -------------------------------------------------------------
 # 1. 2-Channel 1D-CNN Seq2Point Inference Engine
@@ -152,6 +162,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(ems_router)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
@@ -170,7 +181,22 @@ cached_schema = None
 @app.on_event("startup")
 async def startup_rag_engine():
     global rag_mapper
-    rag_mapper = BmsRagMapper(MANUAL_PATH)
+    try:
+        Base.metadata.create_all(bind=engine)
+        seed_physical_mapping()
+        print("[EMS] Supabase schema ready: zones, floors, meter_readings")
+    except Exception as error:
+        print(f"[EMS] Database init skipped: {error}")
+
+    def _load_rag():
+        global rag_mapper
+        try:
+            rag_mapper = BmsRagMapper(MANUAL_PATH)
+            print("[RAG] BMS mapper ready")
+        except Exception as error:
+            print(f"[RAG] skipped: {error}")
+
+    threading.Thread(target=_load_rag, daemon=True).start()
 
 # Preset Historical Time Machine Scenarios from BDG2
 TIME_MACHINE_SCENARIOS = {
