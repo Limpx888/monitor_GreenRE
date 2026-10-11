@@ -352,7 +352,7 @@ export default function DashboardPage() {
     setBmsLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8000/api/bms/telemetry?floor=${encodeURIComponent(complianceGap?.anomaly_floor || 'L14')}&timestamp=${encodeURIComponent(currentWeather.timestamp)}`
+        `/api/bms/telemetry?floor=${encodeURIComponent(complianceGap?.anomaly_floor || 'L14')}&timestamp=${encodeURIComponent(currentWeather.timestamp)}`
       );
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -874,6 +874,8 @@ export default function DashboardPage() {
             onClick={() => {
               if (tab === 'Reserve Management') {
                 navigate('/reservations');
+              } else if (tab === 'Waste Management') {
+                navigate('/waste');
               } else {
                 setActiveTab(tab);
               }

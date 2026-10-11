@@ -14,20 +14,33 @@ import json
 import pickle
 import csv
 import threading
+from contextlib import asynccontextmanager
 
 # Ensure sibling modules are importable whether uvicorn is launched from
 # the backend/ dir itself or from the parent dir (e.g. `backend.main:app`).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+WASTE_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "waste-api"))
+sys.path.insert(0, WASTE_API_DIR)
 
 import numpy as np
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from rag_engine import BmsRagMapper
 from database import Base, engine
 from ems_router import router as ems_router
 from seed import seed_physical_mapping
+from app import main as waste_main
+from app.routers.auth_router import router as waste_auth_router
+from app.routers.detect_router import router as waste_detect_router
+from app.routers.scans_router import router as waste_scans_router
+from app.routers.analytics_router import router as waste_analytics_router
+from app.routers.config_router import router as waste_config_router
+from app.routers.actions_router import router as waste_actions_router
+from app.routers.greenre_router import router as waste_greenre_router
+from app.routers.collections_router import router as waste_collections_router
 
 # -------------------------------------------------------------
 # 1. 2-Channel 1D-CNN Seq2Point Inference Engine
@@ -155,6 +168,8 @@ app = FastAPI(
     version="3.0.0"
 )
 
+app.mount("/api/v1/uploads", StaticFiles(directory=waste_main.settings.upload_dir), name="uploads")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -163,6 +178,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(ems_router)
+app.include_router(waste_auth_router)
+app.include_router(waste_detect_router)
+app.include_router(waste_scans_router)
+app.include_router(waste_analytics_router)
+app.include_router(waste_config_router)
+app.include_router(waste_actions_router)
+app.include_router(waste_greenre_router)
+app.include_router(waste_collections_router)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
@@ -197,6 +220,11 @@ async def startup_rag_engine():
             print(f"[RAG] skipped: {error}")
 
     threading.Thread(target=_load_rag, daemon=True).start()
+
+
+@app.on_event("startup")
+async def startup_waste_api():
+    await waste_main.initialize_waste_api()
 
 # Preset Historical Time Machine Scenarios from BDG2
 TIME_MACHINE_SCENARIOS = {
@@ -363,6 +391,26 @@ def health_check():
         "weights_path": WEIGHTS_PATH,
         "time_machine_scenarios": list(TIME_MACHINE_SCENARIOS.keys())
     }
+
+
+@app.get("/health")
+def combined_health_check():
+    from app.services.detector import get_model_names
+
+    return {
+        "status": "healthy",
+        "ems_status": "online",
+        "waste_model_loaded": len(get_model_names()) > 0,
+        "waste_model_classes": len(get_model_names()),
+        "waste_demo_mode": waste_main.settings.demo_mode,
+    }
+
+
+@app.get("/api/v1/category-info")
+def get_category_info():
+    from app.services.categorizer import CATEGORY_INFO
+
+    return CATEGORY_INFO
 
 @app.get("/api/bms/telemetry")
 def get_bms_telemetry(
