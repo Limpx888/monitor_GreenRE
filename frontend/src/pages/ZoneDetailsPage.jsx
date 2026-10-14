@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import useSWR from 'swr';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -10,10 +10,19 @@ const fetcher = (url) => fetch(url.startsWith('http') ? url : `${API_BASE}${url}
 export default function ZoneDetailsPage() {
     const { zoneId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
-    // Fix 2: Request the modified backend /api/nilm/latest endpoint
-    const { data: payload, isLoading, error } = useSWR('/api/nilm/latest', fetcher, {
-        refreshInterval: 5000,
+    // 1. 获取从 Dashboard 传过来的 scenario 参数（默认为 nominal / live）
+    const scenario = searchParams.get('scenario') || 'nominal';
+
+    // 2. 根据不同的 scenario 动态拼接 API 地址
+    // 如果是 nominal，请求标准接口；如果是历史场景，带上 ?scenario=xxx 参数让后端返回对应历史数据
+    const apiEndpoint = scenario === 'nominal'
+        ? '/api/nilm/latest'
+        : `/api/nilm/latest?scenario=${scenario}`;
+
+    const { data: payload, isLoading, error } = useSWR(apiEndpoint, fetcher, {
+        refreshInterval: scenario === 'nominal' ? 5000 : 0, // 历史场景不需要轮询
     });
 
     const currentZone = useMemo(() => {
@@ -48,7 +57,7 @@ export default function ZoneDetailsPage() {
                     <div>
                         <h1 className="text-2xl font-extrabold text-slate-800">{currentZone.name || zoneId}</h1>
                         <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                            Appliance-Level Load Disaggregation
+                            Appliance-Level Load Disaggregation {scenario !== 'nominal' && `(${scenario.toUpperCase()})`}
                         </p>
                     </div>
                 </div>
@@ -58,8 +67,8 @@ export default function ZoneDetailsPage() {
                         <div className="text-4xl font-black text-slate-800 font-mono">
                             {kw.toFixed(1)} <span className="text-lg text-slate-400">kW Total</span>
                         </div>
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full animate-pulse">
-                            LIVE NILM
+                        <span className={`px-3 py-1 font-bold text-xs rounded-full ${scenario === 'nominal' ? 'bg-emerald-100 text-emerald-800 animate-pulse' : 'bg-amber-100 text-amber-800'}`}>
+                            {scenario === 'nominal' ? 'LIVE NILM' : `SCENARIO: ${scenario}`}
                         </span>
                     </div>
 

@@ -44,11 +44,25 @@ function findZoneId(object) {
 /**
  * Blender Light Exchange digital twin (LightExchange_DigitalTwin.glb)
  */
-export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFloor, anomalyZone }) {
+export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFloor, anomalyZone, zonesData }) {
   const groupRef = useRef();
   const hoveredZoneRef = useRef(null);
   const navigate = useNavigate();
   const { scene } = useGLTF('/LightExchange_DigitalTwin.glb');
+
+  // ⚠️ 动态数据合并逻辑 (Dynamic Data Merge Logic)
+  // 将外部传入的实时数据 (zonesData) 与本地静态配置 (ZONE_META) 结合
+  const dynamicZoneMeta = useMemo(() => {
+    const meta = { ...ZONE_META };
+    if (zonesData && Array.isArray(zonesData)) {
+      zonesData.forEach((z) => {
+        if (meta[z.id]) {
+          meta[z.id] = { ...meta[z.id], ...z };
+        }
+      });
+    }
+    return meta;
+  }, [zonesData]);
 
   const model = useMemo(() => {
     const root = scene.clone(true);
@@ -105,7 +119,8 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
           obj.material.emissiveIntensity = 0.15;
           obj.material.opacity = 1;
         } else {
-          const warn = ZONE_META[obj.userData.zoneId]?.status === 'warn';
+          // ⚠️ 使用 dynamicZoneMeta 获取实时状态，控制模型透明度
+          const warn = dynamicZoneMeta[obj.userData.zoneId]?.status === 'warn';
           obj.material.opacity = warn ? 0.95 : 0.88;
           if (obj.material.emissive) {
             obj.material.emissive.set('#000000');
@@ -114,7 +129,7 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
         }
       });
     },
-    [model, selectedZone],
+    [model, selectedZone, dynamicZoneMeta], // ⚠️ 添加 dynamicZoneMeta 依赖
   );
 
   // Highlight selected zone meshes
@@ -122,7 +137,8 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
     model.traverse((obj) => {
       if (!obj.isMesh || !obj.material || !obj.userData.zoneId) return;
       const active = obj.userData.zoneId === selectedZone;
-      const warn = ZONE_META[obj.userData.zoneId]?.status === 'warn';
+      // ⚠️ 使用 dynamicZoneMeta
+      const warn = dynamicZoneMeta[obj.userData.zoneId]?.status === 'warn';
       if (active) {
         obj.material.color.set('#0f766e');
         obj.material.opacity = 1;
@@ -131,7 +147,8 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
       } else {
         obj.material.color.copy(obj.userData.baseColor);
         // Keep zone palette vivid for dashboard
-        const zColor = ZONE_META[obj.userData.zoneId]?.color;
+        // ⚠️ 使用 dynamicZoneMeta
+        const zColor = dynamicZoneMeta[obj.userData.zoneId]?.color;
         if (zColor) obj.material.color.set(zColor);
         obj.material.opacity = warn ? 0.95 : 0.88;
         if (obj.material.emissive) {
@@ -140,7 +157,7 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
         }
       }
     });
-  }, [model, selectedZone]);
+  }, [model, selectedZone, dynamicZoneMeta]); // ⚠️ 添加 dynamicZoneMeta 依赖
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -189,15 +206,16 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
             hoveredZoneRef.current = zoneId;
             applyHoverHighlight(zoneId);
           }
-          const zone = ZONE_META[zoneId];
+          // ⚠️ 使用 dynamicZoneMeta 以确保给 Dashboard 的悬浮窗发送实时能耗 (kW) 和警告状态
+          const zone = dynamicZoneMeta[zoneId];
           const floors = ZONE_FLOORS[zoneId] || [];
           onHover?.({
             zoneId,
             floorId: ZONE_TO_FLOOR[zoneId],
             name: zone?.name || '',
             floors: zone?.floors || '',
-            energy: zone?.energy || '',
-            status: zone?.status || 'ok',
+            energy: zone?.energy || '',     // 🚀 现在这里拿到的是 Dashboard 算好的动态电量了！
+            status: zone?.status || 'ok',   // 🚀 动态的警告状态
             color: zone?.color || '#94a3b8',
             floorDetails: floors.map((f) => ({
               label: f.label,

@@ -81,28 +81,37 @@ export default function UtilityMainMeter({ className = '', overrideData = null }
         </div>
       </div>
 
+      {/* Progress bar rendering area */}
       <div className="flex w-full h-3 rounded-full overflow-hidden mb-3.5 bg-slate-100 p-0.5 shadow-inner">
         {loads.map((zone) => {
           const kw = zoneKw(zone);
           const pct = total > 0 ? (kw / total) * 100 : 0;
+          // ⚠️ Get estimation flag. If not passed in Live mode, NILM is still essentially an estimation, so default to true
+          const isEstimated = zone.is_estimated ?? true;
+
           return (
             <div
               key={zone.zone_name}
               style={{
                 width: `${pct}%`,
                 backgroundColor: zone.color,
+                // ⚠️ Industrial UI design: Estimated data uses a translucent striped background, never mixing up with physical measurements
+                backgroundImage: isEstimated ? 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.3) 4px, rgba(255,255,255,0.3) 8px)' : 'none',
                 transition: 'width 0.5s ease-in-out',
               }}
               className="h-full transition-all duration-500 ease-in-out hover:opacity-90 relative cursor-pointer"
-              title={`${zone.zone_name}: ${kw.toFixed(1)} kW (${pct.toFixed(1)}%)`}
+              title={`${zone.zone_name}: ${kw.toFixed(1)} kW (${pct.toFixed(1)}%) ${isEstimated ? `[AI Estimated, Conf: ${zone.confidence || 85}%]` : '[Measured]'}`}
             />
           );
         })}
       </div>
 
+      {/* List rendering area */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-slate-600 font-medium">
         {loads.map((zone) => {
           const kw = zoneKw(zone);
+          const isEstimated = zone.is_estimated ?? true;
+
           return (
             <div
               key={zone.zone_name}
@@ -116,10 +125,22 @@ export default function UtilityMainMeter({ className = '', overrideData = null }
                 <span className="truncate text-slate-700 font-semibold" title={zone.zone_name}>
                   {zone.zone_name}
                 </span>
+                {/* ⚠️ Inject AI watermark badge */}
+                {isEstimated && (
+                  <span className="ml-1 text-[9px] bg-indigo-50 text-indigo-500 px-1 rounded border border-indigo-100" title={`AI Confidence: ${zone.confidence || 85}%`}>
+                    ✨ AI
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-1 shrink-0 ml-auto font-mono">
-                <strong className="text-slate-900 font-bold">{kw.toFixed(1)}</strong>
-                <span className="text-[10px] text-slate-400">kW</span>
+              <div className="flex flex-col items-end shrink-0 ml-auto font-mono">
+                <div className="flex items-center gap-1">
+                  <strong className="text-slate-900 font-bold">{kw.toFixed(1)}</strong>
+                  <span className="text-[10px] text-slate-400">kW</span>
+                </div>
+                {/* ⚠️ Inject confidence level */}
+                {isEstimated && (
+                  <span className="text-[8px] text-slate-400 leading-none mt-[1px]">Conf: {zone.confidence || 85}%</span>
+                )}
               </div>
             </div>
           );

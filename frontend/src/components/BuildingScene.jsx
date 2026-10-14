@@ -21,7 +21,8 @@ class WebGLBoundary extends Component {
   }
 }
 
-export default function BuildingScene({ selectedZone, onSelect, onFail, onHover, anomalyFloor, anomalyZone }) {
+// ⚠️ Note that zonesData has been added to the parameter list
+export default function BuildingScene({ selectedZone, onSelect, onFail, onHover, anomalyFloor, anomalyZone, zonesData }) {
   return (
     <WebGLBoundary onFail={onFail}>
       <div
@@ -54,6 +55,7 @@ export default function BuildingScene({ selectedZone, onSelect, onFail, onHover,
               onHover={onHover}
               anomalyFloor={anomalyFloor}
               anomalyZone={anomalyZone}
+              zonesData={zonesData} // ⚠️ Pass data down to the underlying 3D model
             />
             <ContactShadows
               position={[0, -2.6, 0]}
