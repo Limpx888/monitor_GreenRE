@@ -15,11 +15,17 @@ function zoneKw(zone) {
   return (zone?.reading_kwh || 0) * 4;
 }
 
-export default function UtilityMainMeter({ className = '' }) {
-  const { data, error, isLoading } = useSWR('/api/v1/dashboard/nilm-live', fetcher, {
+// 1. Add overrideData property
+export default function UtilityMainMeter({ className = '', overrideData = null }) {
+  const { data: liveData, error: liveError, isLoading: liveLoading } = useSWR('/api/v1/dashboard/nilm-live', fetcher, {
     refreshInterval: 5000,
     revalidateOnFocus: true,
   });
+
+  // 2. If overrideData (Scenario) exists, prioritize it; otherwise, use liveData
+  const data = overrideData || liveData;
+  const error = overrideData ? null : liveError;
+  const isLoading = overrideData ? false : liveLoading;
 
   if (error && !data) {
     return (
@@ -60,16 +66,17 @@ export default function UtilityMainMeter({ className = '' }) {
           <span className="text-xs uppercase tracking-wider text-slate-500 font-extrabold">
             ⚡ Utility Main Meter
           </span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
-            LIVE
+          {/* 3. Dynamic badge state: LIVE or SCENARIO */}
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold animate-pulse ${overrideData ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+            {overrideData ? 'SCENARIO' : 'LIVE'}
           </span>
         </div>
         <div className="flex flex-col items-end">
           <span className="text-3xl font-bold text-gray-800">
             {total.toFixed(1)} <span className="text-lg">kW</span>
           </span>
-          <span className="text-xs text-green-600 uppercase font-semibold tracking-wider">
-            Live Demand
+          <span className={`text-xs uppercase font-semibold tracking-wider ${overrideData ? 'text-amber-600' : 'text-green-600'}`}>
+            {overrideData ? 'Scenario Demand' : 'Live Demand'}
           </span>
         </div>
       </div>

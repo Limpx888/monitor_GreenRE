@@ -27,51 +27,50 @@ export default function DashboardPage() {
     .map((zone) => zone.code);
 
   // Step 1: Centralized Global "Time Machine" & NILM State (Single Source of Truth)
-  const [selectedScenario, setSelectedScenario] = useState('cool_night_gap');
-  const [currentTime, setCurrentTime] = useState('03:00');
+
+  // 1. 默认场景改为 nominal
+  const [selectedScenario, setSelectedScenario] = useState('nominal');
+
+  // 2. 默认时间改为 Live
+  const [currentTime, setCurrentTime] = useState('Live');
+
+  // 3. 默认天气改为正常晴天
   const [currentWeather, setCurrentWeather] = useState({
-    temp: 24.5,
-    humidity: 82,
-    condition: 'Cool Night (Overcast)',
-    emoji: '🌙',
-    timestamp: '2016-03-15 03:00:00',
+    temp: 28.4,
+    humidity: 72,
+    condition: 'Clear Sky (Nominal Operation)',
+    emoji: '☀️',
+    timestamp: new Date().toISOString(),
     forecast: [
-      { time: '01:00', emoji: '🌙', temp: 24.8, rainProb: 10 },
-      { time: '02:00', emoji: '🌙', temp: 24.6, rainProb: 10 },
-      { time: '03:00', emoji: '🌙', temp: 24.5, rainProb: 15 },
-      { time: '04:00', emoji: '🌙', temp: 24.3, rainProb: 15 },
-      { time: '05:00', emoji: '☁️', temp: 24.1, rainProb: 20 },
-      { time: '06:00', emoji: '⛅', temp: 24.8, rainProb: 10 },
+      { time: '12:00', emoji: '☀️', temp: 28.5, rainProb: 5 },
+      { time: '13:00', emoji: '☀️', temp: 29.0, rainProb: 5 },
+      { time: '14:00', emoji: '☀️', temp: 29.2, rainProb: 5 },
+      { time: '15:00', emoji: '☀️', temp: 28.8, rainProb: 5 },
+      { time: '16:00', emoji: '⛅', temp: 28.0, rainProb: 10 },
+      { time: '17:00', emoji: '⛅', temp: 27.5, rainProb: 10 },
     ],
   });
 
-  // Real-time NILM 4-zone disaggregation results (kW / kWh)
-  const [nilmZones, setNilmZones] = useState({
-    total: 1007,
-    hotel: 420,
-    office: 120,
-    podium: 90,
-    me: 92,
-  });
+  // 4. Real-time NILM 4-zone disaggregation results 
+  // (在 Live 模式下会被 useSWR 真实数据覆盖，设为 null 即可)
+  const [nilmZones, setNilmZones] = useState(null);
 
-  // Weather Cross-Verification Compliance Audit State
+  // 5. 默认合规状态改为 COMPLIANT (绿色无报警状态)
   const [complianceGap, setComplianceGap] = useState({
-    detected: true,
-    status_code: 'EQUIPMENT_MALFUNCTION_GAP',
-    clause: 'EE-1 / WE-1 / EQ-3',
-    clause_title: 'Energy Efficiency & Night Damper Bypass Loss',
-    attribution: 'EQUIPMENT_FAULT',
-    anomaly_zone: 'zone-d',
-    anomaly_floor: 'L14',
-    zone_name: 'Hyatt Hotel (L14–L28)',
-    measured_load: 420.0,
+    detected: false,
+    status_code: 'COMPLIANT',
+    clause: 'EE-1',
+    clause_title: 'Energy Efficiency Standard Met',
+    attribution: 'NORMAL',
+    anomaly_zone: null,
+    anomaly_floor: null,
+    measured_load: 45.2,
     baseline_load: 330.0,
-    outdoor_temp: 24.5,
-    deviation_pct: 27.3,
-    threshold_pct: 20.0,
-    severity: 'CRITICAL',
-    explanation: 'Outdoor air is cool (24.5°C), yet Hotel Zone power remains high (420 kWh, +27.3% vs baseline). AI diagnoses mechanical fresh air damper bypass loss on Floor L14.',
-    action_recommendation: 'Diagnosed mechanical fault: AHU fresh air damper actuator stuck open on Floor L14. Reset actuator to 15% night setback and inspect chilled water FCU bypass valve.',
+    outdoor_temp: 28.4,
+    deviation_pct: 0.0,
+    severity: 'NOMINAL',
+    explanation: 'Real-time telemetry stream synchronized. All building zones operating within GreenRE compliance bounds.',
+    action_recommendation: 'Continuous IoT surveillance active across all 5 zones.',
   });
 
   const tooltipRef = useRef(null);
@@ -385,6 +384,33 @@ export default function DashboardPage() {
       setBmsLoading(false);
     }
   };
+
+  // --- Place this code right before return ( ---
+  const activePayload = useMemo(() => {
+    // If it's Live mode, or data is not yet ready, continue using real Live data
+    if (selectedScenario === 'nominal' || !nilmZones) {
+      return liveConsumption;
+    }
+
+    // If it's Scenario mode, assemble a "forged" payload to forcefully override the component
+    return {
+      timestamp: currentWeather.timestamp,
+      total_main_meter_kw: nilmZones.total,
+      zones: [
+        { code: 'zone-a', name: 'M&E Plant', demand_kw: nilmZones.me, color: '#4b5563', compliance_status: 'SCENARIO' },
+        { code: 'zone-b', name: 'Podium', demand_kw: nilmZones.podium, color: '#94a3b8', compliance_status: 'SCENARIO' },
+        { code: 'zone-c', name: 'Offices', demand_kw: nilmZones.office, color: '#3b82f6', compliance_status: 'SCENARIO' },
+        { code: 'zone-d', name: 'Hyatt Hotel', demand_kw: nilmZones.hotel, color: '#e11d48', compliance_status: complianceGap?.detected ? '⚠️ GAP FOUND' : 'SCENARIO' },
+      ],
+      disaggregated_loads: [
+        { zone_name: 'M&E Plant', demand_kw: nilmZones.me, color: '#4b5563' },
+        { zone_name: 'Podium', demand_kw: nilmZones.podium, color: '#94a3b8' },
+        { zone_name: 'Offices', demand_kw: nilmZones.office, color: '#3b82f6' },
+        { zone_name: 'Hyatt Hotel', demand_kw: nilmZones.hotel, color: '#e11d48' },
+      ]
+    };
+  }, [selectedScenario, liveConsumption, nilmZones, currentWeather, complianceGap]);
+  // ------------------------------------
 
   return (
     <div className="dashboard">
@@ -771,8 +797,12 @@ export default function DashboardPage() {
           <NilmChart currentTime={currentTime} />
 
           {/* 🔥 3. Spatial Disaggregation Visualization (Single Source of Truth SWR) */}
-          <UtilityMainMeter />
-          <ZoneConsumptionCards payload={liveConsumption} loading={liveLoading} error={liveError} />
+          <UtilityMainMeter overrideData={selectedScenario === 'nominal' ? null : activePayload} />
+          <ZoneConsumptionCards
+            payload={activePayload}
+            loading={selectedScenario === 'nominal' ? liveLoading : false}
+            error={selectedScenario === 'nominal' ? liveError : null}
+          />
 
           {/* 4. AI Gap Identification (Red / Amber / Green Alert Card) */}
           {complianceGap && complianceGap.attribution === 'EQUIPMENT_FAULT' ? (
