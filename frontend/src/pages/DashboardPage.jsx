@@ -52,8 +52,13 @@ export default function DashboardPage() {
   });
 
   // 4. Real-time NILM 4-zone disaggregation results 
-  // (在 Live 模式下会被 useSWR 真实数据覆盖，设为 null 即可)
-  const [nilmZones, setNilmZones] = useState(null);
+  const [nilmZones, setNilmZones] = useState({
+    total: 1007,
+    hotel: 420,
+    office: 120,
+    podium: 90,
+    me: 92,
+  });
 
   // 5. 默认合规状态改为 COMPLIANT (绿色无报警状态)
   const [complianceGap, setComplianceGap] = useState({
@@ -300,10 +305,10 @@ export default function DashboardPage() {
       return fallbackWarn ? 'warn' : 'ok';
     };
     return [
-      { id: 'zone-a', name: 'M&E Plant', floors: 'B2–LG', y: 0.4, h: 0.85, w: 4.6, d: 3.5, color: '#4b5563', energy: energyFor('zone-a', nilmZones.me), status: statusFor('zone-a', false) },
-      { id: 'zone-b', name: 'Podium', floors: 'GF–L3', y: 1.55, h: 1.2, w: 4.3, d: 3.3, color: '#94a3b8', energy: energyFor('zone-b', nilmZones.podium), status: statusFor('zone-b', false) },
-      { id: 'zone-c', name: 'Offices', floors: 'L4–L12', y: 3.35, h: 2.2, w: 3.2, d: 2.45, color: '#3b82f6', energy: energyFor('zone-c', nilmZones.office), status: statusFor('zone-c', false) },
-      { id: 'zone-d', name: 'Hyatt Hotel', floors: 'L14–L28', y: 6.05, h: 3.2, w: 3.0, d: 2.3, color: '#e11d48', energy: energyFor('zone-d', nilmZones.hotel), status: statusFor('zone-d', complianceGap?.detected) },
+      { id: 'zone-a', name: 'M&E Plant', floors: 'B2–LG', y: 0.4, h: 0.85, w: 4.6, d: 3.5, color: '#4b5563', energy: energyFor('zone-a', nilmZones?.me ?? 92), status: statusFor('zone-a', false) },
+      { id: 'zone-b', name: 'Podium', floors: 'GF–L3', y: 1.55, h: 1.2, w: 4.3, d: 3.3, color: '#94a3b8', energy: energyFor('zone-b', nilmZones?.podium ?? 90), status: statusFor('zone-b', false) },
+      { id: 'zone-c', name: 'Offices', floors: 'L4–L12', y: 3.35, h: 2.2, w: 3.2, d: 2.45, color: '#3b82f6', energy: energyFor('zone-c', nilmZones?.office ?? 120), status: statusFor('zone-c', false) },
+      { id: 'zone-d', name: 'Hyatt Hotel', floors: 'L14–L28', y: 6.05, h: 3.2, w: 3.0, d: 2.3, color: '#e11d48', energy: energyFor('zone-d', nilmZones?.hotel ?? 420), status: statusFor('zone-d', complianceGap?.detected) },
       { id: 'zone-e', name: 'Amenities', floors: 'L29–L31', y: 7.95, h: 0.7, w: 2.7, d: 2.05, color: '#fb7185', energy: energyFor('zone-e', 140), status: statusFor('zone-e', false) },
     ];
   }, [nilmZones, complianceGap, liveByCode]);
@@ -394,19 +399,19 @@ export default function DashboardPage() {
 
     // If it's Scenario mode, assemble a "forged" payload to forcefully override the component
     return {
-      timestamp: currentWeather.timestamp,
-      total_main_meter_kw: nilmZones.total,
+      timestamp: currentWeather?.timestamp,
+      total_main_meter_kw: nilmZones?.total ?? 0,
       zones: [
-        { code: 'zone-a', name: 'M&E Plant', demand_kw: nilmZones.me, color: '#4b5563', compliance_status: 'SCENARIO' },
-        { code: 'zone-b', name: 'Podium', demand_kw: nilmZones.podium, color: '#94a3b8', compliance_status: 'SCENARIO' },
-        { code: 'zone-c', name: 'Offices', demand_kw: nilmZones.office, color: '#3b82f6', compliance_status: 'SCENARIO' },
-        { code: 'zone-d', name: 'Hyatt Hotel', demand_kw: nilmZones.hotel, color: '#e11d48', compliance_status: complianceGap?.detected ? '⚠️ GAP FOUND' : 'SCENARIO' },
+        { code: 'zone-a', name: 'M&E Plant', demand_kw: nilmZones?.me ?? 0, color: '#4b5563', compliance_status: 'SCENARIO' },
+        { code: 'zone-b', name: 'Podium', demand_kw: nilmZones?.podium ?? 0, color: '#94a3b8', compliance_status: 'SCENARIO' },
+        { code: 'zone-c', name: 'Offices', demand_kw: nilmZones?.office ?? 0, color: '#3b82f6', compliance_status: 'SCENARIO' },
+        { code: 'zone-d', name: 'Hyatt Hotel', demand_kw: nilmZones?.hotel ?? 0, color: '#e11d48', compliance_status: complianceGap?.detected ? '⚠️ GAP FOUND' : 'SCENARIO' },
       ],
       disaggregated_loads: [
-        { zone_name: 'M&E Plant', demand_kw: nilmZones.me, color: '#4b5563' },
-        { zone_name: 'Podium', demand_kw: nilmZones.podium, color: '#94a3b8' },
-        { zone_name: 'Offices', demand_kw: nilmZones.office, color: '#3b82f6' },
-        { zone_name: 'Hyatt Hotel', demand_kw: nilmZones.hotel, color: '#e11d48' },
+        { zone_name: 'M&E Plant', demand_kw: nilmZones?.me ?? 0, color: '#4b5563' },
+        { zone_name: 'Podium', demand_kw: nilmZones?.podium ?? 0, color: '#94a3b8' },
+        { zone_name: 'Offices', demand_kw: nilmZones?.office ?? 0, color: '#3b82f6' },
+        { zone_name: 'Hyatt Hotel', demand_kw: nilmZones?.hotel ?? 0, color: '#e11d48' },
       ]
     };
   }, [selectedScenario, liveConsumption, nilmZones, currentWeather, complianceGap]);
@@ -925,7 +930,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="bottom-pills">
-        {['Dashboard', 'Reserve Management', 'Waste Management', 'CE'].map((tab) => (
+        {['Dashboard', 'Reserve Management', 'Waste Management', 'Water Management'].map((tab) => (
           <button
             key={tab}
             type="button"
@@ -935,6 +940,8 @@ export default function DashboardPage() {
                 navigate('/reservations');
               } else if (tab === 'Waste Management') {
                 navigate('/waste');
+              } else if (tab === 'Water Management') {
+                navigate('/water');
               } else {
                 setActiveTab(tab);
               }

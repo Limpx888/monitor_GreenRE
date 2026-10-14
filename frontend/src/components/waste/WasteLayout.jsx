@@ -115,7 +115,7 @@ export default function WasteLayout() {
 
       {/* Segmented Bottom Tabs (Same as Dashboard) */}
       <div className="bottom-pills" style={{ pointerEvents: 'auto' }}>
-        {['Dashboard', 'Reserve Management', 'Waste Management', 'CE'].map((tab) => (
+        {['Dashboard', 'Reserve Management', 'Waste Management', 'Water Management'].map((tab) => (
           <button
             key={tab}
             type="button"
@@ -123,6 +123,7 @@ export default function WasteLayout() {
             onClick={() => {
               if (tab === 'Dashboard') navigate('/');
               else if (tab === 'Reserve Management') navigate('/reservations');
+              else if (tab === 'Water Management') navigate('/water');
             }}
           >
             {tab}

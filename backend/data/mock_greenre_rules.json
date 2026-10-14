@@ -1,0 +1,42 @@
+[
+  {
+    "criteria_id": "WE-1",
+    "category": "Water Efficient Fittings",
+    "applicable_space": "office",
+    "threshold_wui_m3_m2_yr": 0.9,
+    "description": "Office buildings must maintain a Water Use Intensity (WUI) of less than 0.9 cubic meters per square meter per year.",
+    "actionable_recommendation": "Install WELS 3-tick rated low-flow faucets (<=2.0 L/min) and dual-flush toilets (<=4.0/3.0 L/flush)."
+  },
+  {
+    "criteria_id": "WE-2",
+    "category": "Water Consumption Monitoring & Sub-metering",
+    "applicable_space": "all",
+    "threshold_submetering_coverage_pct": 90.0,
+    "description": "Sub-meters must be installed for all major water uses (cooling towers, irrigation, tenant spaces) accounting for at least 90% of total consumption.",
+    "actionable_recommendation": "Install digital IoT pulsed water sub-meters on cooling tower make-up lines and landscape irrigation manifolds."
+  },
+  {
+    "criteria_id": "WE-3",
+    "category": "Cooling Tower Water Use",
+    "applicable_space": "all",
+    "threshold_chilled_ratio_pct": 20.0,
+    "description": "Chilled water usage for cooling systems must not exceed 20% of the building's total general water consumption, and cycles of concentration must be >= 6.",
+    "actionable_recommendation": "Implement non-chemical water treatment (e.g. electrochemical or ultrasonic) to increase cooling tower cycles of concentration to 7+ cycles."
+  },
+  {
+    "criteria_id": "WE-4",
+    "category": "Irrigation & Landscape Water Conservation",
+    "applicable_space": "all",
+    "threshold_potable_irrigation_pct": 50.0,
+    "description": "At least 50% of landscape irrigation must be supplied by non-potable sources such as rainwater harvesting or recycled AHU condensate.",
+    "actionable_recommendation": "Divert AHU condensate drain lines and roof storm runoff to a 50m3 non-potable underground retention tank for drip irrigation."
+  },
+  {
+    "criteria_id": "WE-5",
+    "category": "Alternative & Recycled Water Sources",
+    "applicable_space": "lodging",
+    "threshold_alternative_water_pct": 15.0,
+    "description": "Commercial lodging spaces must replace at least 15% of total water demand with harvested rainwater or treated greywater for toilet flushing.",
+    "actionable_recommendation": "Implement a dual-pipe plumbing distribution network utilizing UV-treated greywater for podium and basement toilet flushing."
+  }
+]

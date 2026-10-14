@@ -301,7 +301,7 @@ export default function ReservationPage() {
 
       {/* Segmented Bottom Tabs (Same as Dashboard) */}
       <div className="bottom-pills" style={{ pointerEvents: 'auto' }}>
-        {['Dashboard', 'Reserve Management', 'Waste Management', 'CE'].map((tab) => (
+        {['Dashboard', 'Reserve Management', 'Waste Management', 'Water Management'].map((tab) => (
           <button
             key={tab}
             type="button"
@@ -309,6 +309,7 @@ export default function ReservationPage() {
             onClick={() => {
               if (tab === 'Dashboard') navigate('/');
               else if (tab === 'Waste Management') navigate('/waste');
+              else if (tab === 'Water Management') navigate('/water');
             }}
           >
             {tab}
