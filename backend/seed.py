@@ -1,10 +1,12 @@
-"""Idempotent seed of 5 GreenRE zones and Light Exchange floor bindings.
+"""Idempotent seed of 5 GreenRE zones, Light Exchange floor bindings,
+TNB Schedule D TOU tariff rates, and zone demand thresholds.
 
 Floor-to-zone mapping lives in Postgres so reallocating L13 (or any floor)
 is a zone_id update, not a code change.
 """
 
-from db_models import Floor, Zone
+from datetime import datetime, timezone
+from db_models import Floor, TouTariffRate, Zone
 from database import SessionLocal, engine, Base
 
 
@@ -118,5 +120,112 @@ def seed_physical_mapping(db=None):
             db.close()
 
 
+# ---------------------------------------------------------------------------
+# TNB Malaysia Schedule D TOU Tariff Rates (approximate 2024)
+# day_mask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
+# ---------------------------------------------------------------------------
+_EPOCH = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+TOU_RATES = [
+    {
+        "name": "Weekday Peak",
+        "tariff_schedule": "TNB_ScheduleD",
+        "day_mask": 31,          # Mon–Fri
+        "hour_start": 8,
+        "hour_end": 21,
+        "rate_per_kwh": 0.337,
+        "demand_charge_per_kw": 30.30,
+        "currency": "MYR",
+        "valid_from": _EPOCH,
+        "valid_until": None,
+        "is_active": True,
+    },
+    {
+        "name": "Weekday Off-Peak",
+        "tariff_schedule": "TNB_ScheduleD",
+        "day_mask": 31,          # Mon–Fri
+        "hour_start": 22,
+        "hour_end": 7,
+        "rate_per_kwh": 0.219,
+        "demand_charge_per_kw": None,
+        "currency": "MYR",
+        "valid_from": _EPOCH,
+        "valid_until": None,
+        "is_active": True,
+    },
+    {
+        "name": "Weekend / Public Holiday",
+        "tariff_schedule": "TNB_ScheduleD",
+        "day_mask": 96,          # Sat=32 + Sun=64
+        "hour_start": 0,
+        "hour_end": 23,
+        "rate_per_kwh": 0.219,
+        "demand_charge_per_kw": None,
+        "currency": "MYR",
+        "valid_from": _EPOCH,
+        "valid_until": None,
+        "is_active": True,
+    },
+]
+
+# Per-zone demand thresholds (kW) — alert fires if 15-min demand exceeds this
+_DEMAND_THRESHOLDS = {
+    "zone-a": 200.0,   # M&E Plant
+    "zone-b": 500.0,   # Podium
+    "zone-c": 400.0,   # Offices
+    "zone-d": 600.0,   # Hyatt Hotel
+    "zone-e": 150.0,   # Amenities
+}
+
+
+def seed_tou_tariff(db=None):
+    """Idempotently seed TNB Schedule D TOU rates."""
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+    try:
+        for spec in TOU_RATES:
+            existing = (
+                db.query(TouTariffRate)
+                .filter(
+                    TouTariffRate.name == spec["name"],
+                    TouTariffRate.tariff_schedule == spec["tariff_schedule"],
+                )
+                .first()
+            )
+            if existing is None:
+                db.add(TouTariffRate(**spec))
+        db.commit()
+        print("[seed] TNB Schedule D TOU tariff rates ready.")
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if own_session:
+            db.close()
+
+
+def seed_demand_thresholds(db=None):
+    """Patch zone demand_threshold_kw values."""
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+    try:
+        for code, threshold in _DEMAND_THRESHOLDS.items():
+            zone = db.query(Zone).filter(Zone.code == code).first()
+            if zone and (zone.demand_threshold_kw is None or zone.demand_threshold_kw != threshold):
+                zone.demand_threshold_kw = threshold
+        db.commit()
+        print("[seed] Zone demand thresholds patched.")
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if own_session:
+            db.close()
+
+
 if __name__ == "__main__":
     seed_physical_mapping()
+    seed_tou_tariff()
+    seed_demand_thresholds()

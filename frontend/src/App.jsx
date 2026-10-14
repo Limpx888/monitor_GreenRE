@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import FloorDetailPage from './pages/FloorDetailPage';
 import ReservationPage from './pages/ReservationPage';
+import ZoneDetailsPage from './pages/ZoneDetailsPage'; // <-- 1. Import the new page
 
 // Waste Management Module
 import WasteLayout from './components/waste/WasteLayout';
@@ -20,6 +21,10 @@ export default function App() {
         {/* Existing Digital Twin routes */}
         <Route path="/" element={<DashboardPage />} />
         <Route path="/floor/:floorId" element={<FloorDetailPage />} />
+
+        {/* 2. Add the new Zone Details route here */}
+        <Route path="/zone/:zoneId" element={<ZoneDetailsPage />} />
+
         <Route path="/reservations" element={<ReservationPage />} />
 
         {/* Waste Management routes */}

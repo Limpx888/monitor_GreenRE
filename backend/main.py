@@ -14,6 +14,7 @@ import json
 import pickle
 import csv
 import threading
+import subprocess
 from contextlib import asynccontextmanager
 
 # Ensure sibling modules are importable whether uvicorn is launched from
@@ -31,7 +32,8 @@ from pydantic import BaseModel, Field
 from rag_engine import BmsRagMapper
 from database import Base, engine
 from ems_router import router as ems_router
-from seed import seed_physical_mapping
+from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds
+import control_adapters  # noqa: F401 — registers ControlAuditLog in Base.metadata
 from app import main as waste_main
 from app.routers.auth_router import router as waste_auth_router
 from app.routers.detect_router import router as waste_detect_router
@@ -85,19 +87,14 @@ class EcoPulseNILMWeatherEngine:
             print(f"[NILM 2-Channel Engine] Warning: Weight file not found at {self.weights_path}")
 
     def forward(self, x_seq: np.ndarray) -> np.ndarray:
-        """
-        x_seq: (N, 2, 24) normalized input sequence
-        Channel 0: Power, Channel 1: Temperature
-        returns: (N, 4) normalized predictions
-        """
         N = x_seq.shape[0]
-        w_conv1 = self.weights['conv1.weight']  # (16, 2, 3)
+        w_conv1 = self.weights['conv1.weight']
         b_conv1 = self.weights['conv1.bias']
-        w_conv2 = self.weights['conv2.weight']  # (32, 16, 3)
+        w_conv2 = self.weights['conv2.weight']
         b_conv2 = self.weights['conv2.bias']
-        w_fc1 = self.weights['fc1.weight']      # (192, 32)
+        w_fc1 = self.weights['fc1.weight']
         b_fc1 = self.weights['fc1.bias']
-        w_fc2 = self.weights['fc2.weight']      # (32, 4)
+        w_fc2 = self.weights['fc2.weight']
         b_fc2 = self.weights['fc2.bias']
 
         if w_fc1.shape[0] == 32 and w_fc1.shape[1] == 192:
@@ -105,7 +102,6 @@ class EcoPulseNILMWeatherEngine:
         if w_fc2.shape[0] == 4 and w_fc2.shape[1] == 32:
             w_fc2 = w_fc2.T
 
-        # Conv1: pad 1 on temporal dimension -> (N, 2, 26)
         x_pad1 = np.pad(x_seq, ((0,0), (0,0), (1,1)), mode='constant')
         out_conv1 = np.zeros((N, 16, 24), dtype=np.float32)
         for i in range(24):
@@ -113,9 +109,8 @@ class EcoPulseNILMWeatherEngine:
             out_conv1[:, :, i] = np.tensordot(patch, w_conv1, axes=([1, 2], [1, 2])) + b_conv1
         
         relu1 = np.maximum(0, out_conv1)
-        pool1 = np.maximum(relu1[:, :, 0::2], relu1[:, :, 1::2])  # (N, 16, 12)
+        pool1 = np.maximum(relu1[:, :, 0::2], relu1[:, :, 1::2])
 
-        # Conv2: pad 1 -> (N, 16, 14)
         pool1_pad = np.pad(pool1, ((0,0), (0,0), (1,1)), mode='constant')
         out_conv2 = np.zeros((N, 32, 12), dtype=np.float32)
         for i in range(12):
@@ -123,7 +118,7 @@ class EcoPulseNILMWeatherEngine:
             out_conv2[:, :, i] = np.tensordot(patch, w_conv2, axes=([1, 2], [1, 2])) + b_conv2
 
         relu2 = np.maximum(0, out_conv2)
-        pool2 = np.maximum(relu2[:, :, 0::2], relu2[:, :, 1::2])  # (N, 32, 6)
+        pool2 = np.maximum(relu2[:, :, 0::2], relu2[:, :, 1::2])
 
         flat = pool2.reshape(N, -1)
         fc1 = np.maximum(0, np.dot(flat, w_fc1) + b_fc1)
@@ -131,9 +126,6 @@ class EcoPulseNILMWeatherEngine:
         return out
 
     def predict_2channel(self, power_seq_24h: List[float], temp_seq_24h: List[float]):
-        """
-        Feeds 24 hours of [Total Power, Outdoor Temperature] -> disaggregates 4 zones
-        """
         p_mean = self.meta['norm_params']['power_mean']
         p_std = self.meta['norm_params']['power_std']
         t_mean = self.meta['norm_params']['temp_mean']
@@ -160,73 +152,8 @@ class EcoPulseNILMWeatherEngine:
         }
 
 # -------------------------------------------------------------
-# 2. FastAPI Application Setup & Data Time Machine Scenarios
+# 2. Historical Scenarios & Attribution Logic (Restored!)
 # -------------------------------------------------------------
-app = FastAPI(
-    title="GreenRE EcoPulse NILM Gateway",
-    description="2-Channel 1D-CNN Energy Disaggregation & Weather Cross-Verification Rule Engine",
-    version="3.0.0"
-)
-
-app.mount("/api/v1/uploads", StaticFiles(directory=waste_main.settings.upload_dir), name="uploads")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.include_router(ems_router)
-app.include_router(waste_auth_router)
-app.include_router(waste_detect_router)
-app.include_router(waste_scans_router)
-app.include_router(waste_analytics_router)
-app.include_router(waste_config_router)
-app.include_router(waste_actions_router)
-app.include_router(waste_greenre_router)
-app.include_router(waste_collections_router)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.join(BASE_DIR, 'models')
-WEIGHTS_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_weights.pth')
-META_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_meta.json')
-
-nilm_engine = EcoPulseNILMWeatherEngine(WEIGHTS_PATH, META_PATH)
-
-DATA_DIR = os.path.join(BASE_DIR, "data")
-SENSOR_CSV_PATH = os.path.join(DATA_DIR, "ahu_fault_damper_stuck.csv")
-MANUAL_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "LBNLDataSynthesisInventory.pdf"))
-rag_mapper = None
-cached_schema = None
-
-
-@app.on_event("startup")
-async def startup_rag_engine():
-    global rag_mapper
-    try:
-        Base.metadata.create_all(bind=engine)
-        seed_physical_mapping()
-        print("[EMS] Supabase schema ready: zones, floors, meter_readings")
-    except Exception as error:
-        print(f"[EMS] Database init skipped: {error}")
-
-    def _load_rag():
-        global rag_mapper
-        try:
-            rag_mapper = BmsRagMapper(MANUAL_PATH)
-            print("[RAG] BMS mapper ready")
-        except Exception as error:
-            print(f"[RAG] skipped: {error}")
-
-    threading.Thread(target=_load_rag, daemon=True).start()
-
-
-@app.on_event("startup")
-async def startup_waste_api():
-    await waste_main.initialize_waste_api()
-
-# Preset Historical Time Machine Scenarios from BDG2
 TIME_MACHINE_SCENARIOS = {
     "cool_night_gap": {
         "id": "cool_night_gap",
@@ -272,25 +199,42 @@ TIME_MACHINE_SCENARIOS = {
     }
 }
 
-# -------------------------------------------------------------
-# 3. Weather Cross-Verification Rule Engine & Attribution Logic
-# -------------------------------------------------------------
-def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float, hour: int = 3):
+def get_appliance_breakdown(zone_power: float, hour: int, zone_type: str) -> dict:
     """
-    Intelligent Attribution Logic (XAI):
-    Cross-references disaggregated hotel power against real outdoor temperature.
-    - If night temperature is hot (>= 29.5°C): surge is weather-driven (cooling load physics).
-    - If night temperature is cool (<= 26.0°C) yet load is high: mechanical equipment fault (damper stuck open).
+    Stage 2: Appliance-Level Disaggregation (Rule-Based Heuristic for Hackathon)
+    According to physical building operating principles, secondarily disaggregates zone power into specific electrical equipment energy consumption.
     """
-    hotel_baseline = 330.0  # Normal off-peak baseline for Hyatt Hotel
-    deviation_pct = round(((hotel_power - hotel_baseline) / hotel_baseline) * 100.0, 1)
+    if zone_type == "hotel":
+        if 8 <= hour <= 18:
+            hvac, light, plug = 0.55, 0.15, 0.30  # Daytime guest room occupancy is lower, plug loads (cleaning/services) increase
+        else:
+            hvac, light, plug = 0.70, 0.10, 0.20  # Nighttime rooms are fully loaded, HVAC share is extremely high
+    elif zone_type == "office":
+        if 8 <= hour <= 18:
+            hvac, light, plug = 0.50, 0.20, 0.30  # Office hours: HVAC, lighting, and office computers fully running
+        else:
+            hvac, light, plug = 0.30, 0.10, 0.60  # After hours: mainly server/mains plug base loads
+    elif zone_type == "podium":
+        if 10 <= hour <= 22:
+            hvac, light, plug = 0.60, 0.25, 0.15  # Mall business hours: high cooling and lighting demand
+        else:
+            hvac, light, plug = 0.40, 0.30, 0.30  # Post-closure: only security lighting and baseline circulation retained
+    else:  # M&E Plant or Amenities
+        hvac, light, plug = 0.85, 0.05, 0.10      # Mechanical & Electrical floors are predominantly power pumps and chillers
 
-    # Late-Night Off-Peak Audit (e.g. 03:00 AM)
+    return {
+        "HVAC": round(zone_power * hvac, 1),
+        "Lighting": round(zone_power * light, 1),
+        "Plug_Loads": round(zone_power * plug, 1)
+    }
+
+def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float, hour: int = 3):
+    hotel_baseline = 330.0  
+    deviation_pct = round(((hotel_power - hotel_baseline) / hotel_baseline) * 100.0, 1)
     is_late_night = (hour == 3 or hour == 0 or hour <= 5)
 
     if is_late_night and deviation_pct >= 20.0:
         if outdoor_temp >= 29.5:
-            # Case A: High Temperature -> Heavy Load Weather Driven
             return {
                 "detected": False,
                 "status_code": "WEATHER_DRIVEN_LOAD",
@@ -305,17 +249,13 @@ def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float,
                 "deviation_pct": deviation_pct,
                 "severity": "NOMINAL_HIGH",
                 "explanation": (
-                    f"At 03:00 AM, Hotel load is elevated ({hotel_power} kWh, +{deviation_pct}%), "
+                    f"At 03:00 AM, Hotel load is elevated ({hotel_power} kW, +{deviation_pct}%), "
                     f"however outdoor temperature is extremely high ({outdoor_temp}°C). "
                     f"Thermal cross-verification confirms surge is weather-induced chiller lift, NOT equipment failure."
                 ),
-                "action_recommendation": (
-                    f"Outdoor heatwave ({outdoor_temp}°C) verified via meteorological record. "
-                    f"Chillers operating within thermal lift envelope. Advise optimizing BMS night economizer enthalpy limits."
-                )
+                "action_recommendation": "Chillers operating within thermal lift envelope. Advise optimizing BMS night economizer enthalpy limits."
             }
         else:
-            # Case B: Cool Night -> Equipment Malfunction (Gap Found)
             return {
                 "detected": True,
                 "status_code": "EQUIPMENT_MALFUNCTION_GAP",
@@ -332,17 +272,15 @@ def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float,
                 "threshold_pct": 20.0,
                 "severity": "CRITICAL",
                 "explanation": (
-                    f"Outdoor air is cool ({outdoor_temp}°C), yet Hotel Zone power remains extremely high at {hotel_power} kWh "
+                    f"Outdoor air is cool ({outdoor_temp}°C), yet Hotel Zone power remains extremely high at {hotel_power} kW "
                     f"(+{deviation_pct}% vs baseline). Disaggregation confirms anomalous cooling energy loss on Floor L14."
                 ),
                 "action_recommendation": (
-                    f"Diagnosed mechanical fault: AHU fresh air damper actuator stuck open on Floor L14, "
-                    f"drawing excessive outdoor air into guest rooms. Action: Dispatch MEP technician to L14 to recalibrate "
-                    f"damper actuator to 15% night setback and inspect chilled water FCU bypass valve."
+                    f"Diagnosed mechanical fault: AHU fresh air damper actuator stuck open on Floor L14. "
+                    f"Action: Dispatch MEP technician to L14 to recalibrate damper actuator to 15% night setback."
                 )
             }
     else:
-        # Normal compliant state
         return {
             "detected": False,
             "status_code": "COMPLIANT",
@@ -360,8 +298,103 @@ def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float,
             "action_recommendation": "All building zones operating in optimal energy envelope. Continuous NILM surveillance active."
         }
 
+
 # -------------------------------------------------------------
-# 4. REST Endpoints
+# 3. FastAPI Application Setup & Lifecycle (Unified)
+# -------------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+WEIGHTS_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_weights.pth')
+META_PATH = os.path.join(MODELS_DIR, 'ecopulse_nilm_weather_meta.json')
+nilm_engine = EcoPulseNILMWeatherEngine(WEIGHTS_PATH, META_PATH)
+
+DATA_DIR = os.path.join(BASE_DIR, "data")
+SENSOR_CSV_PATH = os.path.join(DATA_DIR, "ahu_fault_damper_stuck.csv")
+MANUAL_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "LBNLDataSynthesisInventory.pdf"))
+
+rag_mapper = None
+cached_schema = None
+streamer_process = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global rag_mapper
+    global streamer_process
+    
+    # 1. Database & Waste API Init
+    try:
+        Base.metadata.create_all(bind=engine)
+        seed_physical_mapping()
+        seed_tou_tariff()
+        seed_demand_thresholds()
+        print("[EMS] Schema v2.0 ready: zones, floors, meter_readings, tou_tariff_rates, alarms, control_audit_log")
+    except Exception as error:
+        print(f"[EMS] Database init skipped: {error}")
+
+    def _load_rag():
+        global rag_mapper
+        try:
+            rag_mapper = BmsRagMapper(MANUAL_PATH)
+            print("[RAG] BMS mapper ready")
+        except Exception as error:
+            print(f"[RAG] skipped: {error}")
+
+    threading.Thread(target=_load_rag, daemon=True).start()
+    await waste_main.initialize_waste_api()
+
+    # 2. Simulator Auto-Start
+    project_root = os.path.dirname(BASE_DIR)
+    streamer_path = os.path.join(project_root, "simulators", "bdg2_streamer.py")
+    
+    if os.path.exists(streamer_path):
+        print(f"🚀 [Auto-Start] Launching BDG2 simulator alongside the backend...")
+        streamer_process = subprocess.Popen([sys.executable, streamer_path, "--interval", "5.0"])
+        print(f"✅ BDG2 Streamer running (PID: {streamer_process.pid})")
+    else:
+        print(f"⚠️ Simulator script not found: {streamer_path}")
+
+    yield
+
+    # 3. Simulator Auto-Stop
+    if streamer_process:
+        print("🛑 [Auto-Stop] Backend shutdown detected, terminating BDG2 simulator...")
+        streamer_process.terminate()
+        streamer_process.wait()
+        print("✅ BDG2 Streamer shut down safely.")
+
+
+# >>> THIS IS THE ONLY FastAPI INSTANCE IN THE FILE <<<
+app = FastAPI(
+    title="GreenRE EcoPulse NILM Gateway",
+    description="2-Channel 1D-CNN Energy Disaggregation & Weather Cross-Verification Rule Engine",
+    version="3.0.0",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/api/v1/uploads", StaticFiles(directory=waste_main.settings.upload_dir), name="uploads")
+
+# Attach all routes to the single app instance
+app.include_router(ems_router)
+app.include_router(waste_auth_router)
+app.include_router(waste_detect_router)
+app.include_router(waste_scans_router)
+app.include_router(waste_analytics_router)
+app.include_router(waste_config_router)
+app.include_router(waste_actions_router)
+app.include_router(waste_greenre_router)
+app.include_router(waste_collections_router)
+
+
+# -------------------------------------------------------------
+# 4. REST Endpoints & Request Models
 # -------------------------------------------------------------
 class DisaggregationRequest(BaseModel):
     power_sequence: Optional[List[float]] = Field(None, description="24h main utility meter sequence")
@@ -392,11 +425,9 @@ def health_check():
         "time_machine_scenarios": list(TIME_MACHINE_SCENARIOS.keys())
     }
 
-
 @app.get("/health")
 def combined_health_check():
     from app.services.detector import get_model_names
-
     return {
         "status": "healthy",
         "ems_status": "online",
@@ -405,11 +436,9 @@ def combined_health_check():
         "waste_demo_mode": waste_main.settings.demo_mode,
     }
 
-
 @app.get("/api/v1/category-info")
 def get_category_info():
     from app.services.categorizer import CATEGORY_INFO
-
     return CATEGORY_INFO
 
 @app.get("/api/bms/telemetry")
@@ -417,7 +446,6 @@ def get_bms_telemetry(
     floor: str = Query(..., min_length=1, description="Building floor, for example L14"),
     timestamp: str = Query("2016-03-15T03:00:00")
 ):
-    """Return a micro-level audit view for the floor identified by NILM."""
     if floor.upper() != "L14":
         return {"floor": floor, "status": "Normal", "data": None}
 
@@ -447,12 +475,30 @@ def get_bms_telemetry(
             except (KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"Invalid sensor reading at row {index}: {error}") from error
 
+        anomaly_ctx = {
+            "zone_name": "Hyatt Hotel (L14-L28)",
+            "measured_load": 420.0,
+            "baseline_load": 260.0,
+            "deviation_pct": 61.5,
+            "outdoor_temp": 24.5,
+            "explanation": (
+                "Cool night anomaly: outdoor air is 24.5 deg C yet Hotel Zone power remains high "
+                "(+61.5% vs baseline). NILM disaggregation confirms anomalous cooling energy loss on Floor L14."
+            ),
+        }
+        diagnostic_result = rag_mapper.diagnose_telemetry(floor, telemetry_series, anomaly_ctx)
+
         return {
             "floor": floor.upper(),
             "status": "Critical Fault",
             "audit_timestamp": timestamp,
-            "ai_diagnosis": "AHU Outdoor Air Damper Stuck at 100%",
-            "source": "LBNL Fault Dataset",
+            "ai_diagnosis": diagnostic_result["diagnosis"],
+            "severity": diagnostic_result["severity"],
+            "confidence": diagnostic_result["confidence"],
+            "recommended_checks": diagnostic_result["recommended_checks"],
+            "citations": diagnostic_result["citations"],
+            "llm_provider": diagnostic_result["llm_provider"],
+            "source": "LBNL AFDD Dataset & Engineering Manual",
             "schema_mapping": cached_schema,
             "equipment_breakdown": [
                 {"name": "AHU (Faulty)", "value": 75},
@@ -463,6 +509,29 @@ def get_bms_telemetry(
         }
     except (FileNotFoundError, RuntimeError, ValueError, OSError) as error:
         raise HTTPException(status_code=500, detail=f"Integration Error: {error}") from error
+
+
+class RagQueryRequest(BaseModel):
+    question: str = Field(..., min_length=3, description="Technical question regarding equipment or fault manuals")
+    floor: Optional[str] = Field("L14", description="Building floor ID, e.g. L14")
+
+@app.post("/api/rag/query")
+@app.post("/api/v1/rag/query")
+def query_rag_manual(req: RagQueryRequest):
+    if rag_mapper is None:
+        raise HTTPException(status_code=503, detail="RAG engine is initializing. Please retry in a few seconds.")
+    return rag_mapper.answer_manual_query(req.question, floor=req.floor)
+
+@app.get("/api/rag/status")
+@app.get("/api/v1/rag/status")
+def get_rag_status():
+    from llm_client import llm_client
+    info = llm_client.get_active_provider_info()
+    return {
+        "rag_ready": rag_mapper is not None,
+        "llm_provider": info["active_provider"],
+        "provider_details": info,
+    }
 
 @app.get("/api/time-machine/scenarios")
 def get_time_machine_scenarios():
@@ -493,7 +562,6 @@ def get_latest_inference(
     outdoor_temp = temp_override if temp_override is not None else sc["outdoor_temperature"]
     rh = sc["relative_humidity"]
 
-    # Update global current state for weather card synchronization
     CURRENT_STATE["scenario_id"] = sc["id"]
     CURRENT_STATE["temperature"] = outdoor_temp
     CURRENT_STATE["humidity"] = rh
@@ -501,24 +569,28 @@ def get_latest_inference(
     CURRENT_STATE["hour"] = eval_hour
     CURRENT_STATE["timestamp"] = sc["timestamp"]
 
-    # 1. Run 2-Channel 1D-CNN inference
     power_seq = sc["power_seq"]
     temp_seq = sc["temp_seq"]
     predictions = nilm_engine.predict_2channel(power_seq, temp_seq)
-    
-    # Calibrate to scenario exact test targets
-    if "zone_loads" in sc:
-        for z_key, z_val in sc["zone_loads"].items():
-            predictions[z_key] = z_val
 
-    # 2. Weather Cross-Verification Rule Engine
+    main_meter_kw = float(power_seq[-1])
+    disagg_sum = sum(predictions.values())
+    amenities_kw = round(max(main_meter_kw - disagg_sum, 0.0), 1)
+
     compliance = evaluate_weather_cross_verification(
         hotel_power=predictions['hotel'],
         outdoor_temp=outdoor_temp,
         hour=eval_hour
     )
 
-    total_meter = sum(predictions.values())
+    total_meter = round(disagg_sum + amenities_kw, 1)
+    disaggregated_loads = {
+        "office": predictions["office"],
+        "hotel": predictions["hotel"],
+        "podium": predictions["podium"],
+        "me_plant": predictions["me_plant"],
+        "amenities": amenities_kw,
+    }
 
     return {
         "status": "success",
@@ -532,47 +604,55 @@ def get_latest_inference(
             "weather_emoji": sc["weather_emoji"],
             "condition": sc["weather_condition"]
         },
-        "total_building_power": round(total_meter, 1),
+        "total_building_power": total_meter,
+        "total_main_meter_kw": total_meter,
+        "disaggregated_loads": disaggregated_loads,
+        # Replace the original zones dictionary structure
         "zones": {
             "zone-a": {
                 "id": "zone-a",
                 "name": "M&E Plant",
                 "floors": "B2–LG",
-                "energy": f"{predictions['me_plant']:.0f} kWh",
+                "energy": f"{predictions['me_plant']:.1f} kW",
                 "value": predictions['me_plant'],
-                "status": "ok"
+                "status": "ok",
+                "appliances": get_appliance_breakdown(predictions['me_plant'], eval_hour, "me_plant")
             },
             "zone-b": {
                 "id": "zone-b",
                 "name": "Podium",
                 "floors": "GF–L3",
-                "energy": f"{predictions['podium']:.0f} kWh",
+                "energy": f"{predictions['podium']:.1f} kW",
                 "value": predictions['podium'],
-                "status": "ok"
+                "status": "ok",
+                "appliances": get_appliance_breakdown(predictions['podium'], eval_hour, "podium")
             },
             "zone-c": {
                 "id": "zone-c",
                 "name": "Offices",
                 "floors": "L4–L12",
-                "energy": f"{predictions['office']:.0f} kWh",
+                "energy": f"{predictions['office']:.1f} kW",
                 "value": predictions['office'],
-                "status": "ok"
+                "status": "ok",
+                "appliances": get_appliance_breakdown(predictions['office'], eval_hour, "office")
             },
             "zone-d": {
                 "id": "zone-d",
                 "name": "Hyatt Hotel",
                 "floors": "L14–L28",
-                "energy": f"{predictions['hotel']:.0f} kWh",
+                "energy": f"{predictions['hotel']:.1f} kW",
                 "value": predictions['hotel'],
-                "status": "warn" if compliance["detected"] else "ok"
+                "status": "warn" if compliance["detected"] else "ok",
+                "appliances": get_appliance_breakdown(predictions['hotel'], eval_hour, "hotel")
             },
             "zone-e": {
                 "id": "zone-e",
                 "name": "Amenities",
                 "floors": "L29–L31",
-                "energy": "140 kWh",
-                "value": 140.0,
-                "status": "ok"
+                "energy": f"{amenities_kw:.1f} kW",
+                "value": amenities_kw,
+                "status": "ok",
+                "appliances": get_appliance_breakdown(amenities_kw, eval_hour, "amenities")
             }
         },
         "compliance_gap": compliance
@@ -585,21 +665,16 @@ def disaggregate_power(req: DisaggregationRequest):
 
 @app.get("/api/weather")
 def get_live_weather():
-    """
-    Returns weather dynamically synchronized with the active Time Machine date/hour!
-    """
     temp = CURRENT_STATE["temperature"]
     rh = CURRENT_STATE["humidity"]
     emoji = CURRENT_STATE["emoji"]
     
-    # 12-hour progressive forecast relative to current temperature
     forecast = []
     base_hour = CURRENT_STATE["hour"]
     for offset in range(1, 13):
         h = (base_hour + offset) % 24
         ampm = "AM" if h < 12 else "PM"
         hour_label = f"{(h % 12) or 12} {ampm}"
-        # Diurnal fluctuation
         t_fluct = temp + (3.5 if 10 <= h <= 16 else -1.5)
         em = "☀️" if 8 <= h <= 17 else ("⛅" if 18 <= h <= 20 else "🌙")
         forecast.append({

@@ -1,5 +1,14 @@
-import React from 'react';
+﻿import React from 'react';
 
+/**
+ * ZoneConsumptionCards
+ *
+ * Renders the "Live Zone Consumption" list driven by the nilm-live SWR hook
+ * (same single source of truth as UtilityMainMeter). Each zone shows:
+ *   - Coloured dot + name
+ *   - reading_kwh (instantly consistent with the progress bar above)
+ *   - demand_kw and avg_power_factor when available
+ */
 export default function ZoneConsumptionCards({ payload, loading, error }) {
   const zones = payload?.zones || [];
 
@@ -11,53 +20,78 @@ export default function ZoneConsumptionCards({ payload, loading, error }) {
     );
   }
 
+  if (loading && !payload) {
+    return (
+      <div className="mb-3 animate-pulse space-y-1.5">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-10 rounded-lg bg-slate-100" />
+        ))}
+      </div>
+    );
+  }
+
+  const total = payload?.total_main_meter_kw
+    || payload?.zones?.reduce((sum, zone) => sum + (zone.demand_kw || zone.peak_demand_kw || 0), 0)
+    || 0;
+  const ts = payload?.timestamp;
+
   return (
     <div className="mb-3">
       <div className="mb-1.5 flex items-center justify-between">
         <div className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
-          Live zone consumption (BDG2 → Postgres)
+          Live Zone Consumption
         </div>
-        <div className="text-[10px] font-semibold text-slate-500">
-          EEI {payload?.building_eei_kwh_m2_yr ?? '—'} · {payload?.building_compliance_status || (loading ? 'syncing' : '—')}
+        <div className="text-[10px] font-semibold text-slate-400">
+          {ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (loading ? 'syncing…' : '—')}
         </div>
       </div>
+
       <div className="grid grid-cols-1 gap-1.5">
         {zones.map((zone) => {
-          const warning = zone.compliance_status === 'warning';
-          const allowed = Math.max(zone.energy_kwh - zone.excess_kwh, 0);
-          const total = zone.energy_kwh || 1;
+          const kw = zone.demand_kw ?? zone.peak_demand_kw ?? ((zone.energy_kwh || 0) * 4);
+          const pct = total > 0 ? (kw / total) * 100 : 0;
+          const isLive = zone.compliance_status === 'live';
           return (
             <div
               key={zone.code}
-              className={`rounded-lg bg-white px-2.5 py-2 ${
-                warning
-                  ? 'border border-red-500 animate-pulse'
-                  : 'border border-gray-200'
-              }`}
+              className="rounded-lg bg-white border border-slate-200 px-2.5 py-2 hover:shadow-sm transition-shadow"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-[11px] font-bold text-slate-800">{zone.name}</div>
-                  <div className="text-[10px] text-slate-400">{zone.floors_label}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                    style={{ backgroundColor: zone.color || '#94a3b8' }}
+                  />
+                  <span className="text-[11px] font-bold text-slate-800 truncate" title={zone.name}>
+                    {zone.name}
+                  </span>
                 </div>
-                <div className="text-right">
-                  <div className="text-[11px] font-extrabold text-slate-900">{zone.energy_kwh} kWh</div>
-                  <div className={`text-[10px] font-bold ${warning ? 'text-red-600' : 'text-teal-700'}`}>
-                    {zone.compliance_status}
+                <div className="text-right shrink-0">
+                  <div className="text-[12px] font-extrabold text-slate-900 font-mono">
+                    {kw.toFixed(1)} kW
+                  </div>
+                  <div className={`text-[10px] font-bold ${isLive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {isLive ? '● LIVE' : zone.compliance_status}
                   </div>
                 </div>
               </div>
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div className="flex h-full w-full">
-                  <div className="h-full bg-teal-500" style={{ width: `${(allowed / total) * 100}%` }} />
-                  {warning && zone.excess_kwh > 0 && (
-                    <div className="h-full bg-red-500" style={{ width: `${(zone.excess_kwh / total) * 100}%` }} />
-                  )}
-                </div>
+
+              {/* Proportional width bar */}
+              <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, backgroundColor: zone.color || '#94a3b8' }}
+                />
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">
-                EEI {zone.eei_kwh_m2_yr} / baseline {zone.eei_baseline_kwh_m2_yr}
-                {warning ? ` · gap ${zone.excess_kwh} kWh` : ''}
+
+              {/* Demand & PF metadata row */}
+              <div className="mt-1 flex gap-2 text-[9.5px] text-slate-400">
+                {zone.energy_kwh != null && (
+                  <span>{zone.energy_kwh.toFixed(1)} kWh interval</span>
+                )}
+                {zone.avg_power_factor != null && (
+                  <span>PF {zone.avg_power_factor.toFixed(2)}</span>
+                )}
               </div>
             </div>
           );

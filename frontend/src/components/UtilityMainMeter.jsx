@@ -10,6 +10,11 @@ const fetcher = (url) => {
   });
 };
 
+function zoneKw(zone) {
+  if (zone?.demand_kw != null && zone.demand_kw > 0) return zone.demand_kw;
+  return (zone?.reading_kwh || 0) * 4;
+}
+
 export default function UtilityMainMeter({ className = '' }) {
   const { data, error, isLoading } = useSWR('/api/v1/dashboard/nilm-live', fetcher, {
     refreshInterval: 5000,
@@ -35,31 +40,21 @@ export default function UtilityMainMeter({ className = '' }) {
           <div className="h-4 bg-slate-200 rounded w-1/4"></div>
         </div>
         <div className="w-full h-3 bg-slate-100 rounded-full mb-3"></div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="h-3 bg-slate-100 rounded"></div>
-          <div className="h-3 bg-slate-100 rounded"></div>
-          <div className="h-3 bg-slate-100 rounded"></div>
-          <div className="h-3 bg-slate-100 rounded"></div>
-        </div>
       </div>
     );
   }
 
-  const total = data?.total_main_meter_kwh || 0;
   const loads = data?.disaggregated_loads || [];
+  const total = Number(
+    data?.total_main_meter_kw != null
+      ? data.total_main_meter_kw
+      : loads.reduce((sum, zone) => sum + zoneKw(zone), 0)
+  );
 
   return (
     <div
       className={`bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/80 mb-3 hover:shadow-md transition-shadow duration-200 ${className}`}
-      style={{
-        background: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '0.85rem 0.95rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-      }}
     >
-      {/* 1. Dynamic Main Meter Reading */}
       <div className="flex justify-between items-center font-bold mb-2.5">
         <div className="flex items-center gap-1.5">
           <span className="text-xs uppercase tracking-wider text-slate-500 font-extrabold">
@@ -69,26 +64,20 @@ export default function UtilityMainMeter({ className = '' }) {
             LIVE
           </span>
         </div>
-        <span className="text-base font-extrabold text-slate-900 tracking-tight">
-          {total.toFixed(1)} kWh
-        </span>
+        <div className="flex flex-col items-end">
+          <span className="text-3xl font-bold text-gray-800">
+            {total.toFixed(1)} <span className="text-lg">kW</span>
+          </span>
+          <span className="text-xs text-green-600 uppercase font-semibold tracking-wider">
+            Live Demand
+          </span>
+        </div>
       </div>
 
-      {/* 2. Dynamic Percentage Colored Progress Bar (Flexbox proportional filling) */}
-      <div
-        className="flex w-full h-3 rounded-full overflow-hidden mb-3.5 bg-slate-100 p-0.5 shadow-inner"
-        style={{
-          width: '100%',
-          display: 'flex',
-          height: '11px',
-          borderRadius: '9999px',
-          overflow: 'hidden',
-          marginBottom: '10px',
-          background: '#f1f5f9',
-        }}
-      >
+      <div className="flex w-full h-3 rounded-full overflow-hidden mb-3.5 bg-slate-100 p-0.5 shadow-inner">
         {loads.map((zone) => {
-          const pct = total > 0 ? (zone.reading_kwh / total) * 100 : 0;
+          const kw = zoneKw(zone);
+          const pct = total > 0 ? (kw / total) * 100 : 0;
           return (
             <div
               key={zone.zone_name}
@@ -98,24 +87,15 @@ export default function UtilityMainMeter({ className = '' }) {
                 transition: 'width 0.5s ease-in-out',
               }}
               className="h-full transition-all duration-500 ease-in-out hover:opacity-90 relative cursor-pointer"
-              title={`${zone.zone_name}: ${zone.reading_kwh.toFixed(1)} kWh (${pct.toFixed(1)}%)`}
+              title={`${zone.zone_name}: ${kw.toFixed(1)} kW (${pct.toFixed(1)}%)`}
             />
           );
         })}
       </div>
 
-      {/* 3. Dynamic Value Label Array */}
-      <div
-        className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-slate-600 font-medium"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          gap: '4px 10px',
-          fontSize: '0.72rem',
-        }}
-      >
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-slate-600 font-medium">
         {loads.map((zone) => {
-          const pct = total > 0 ? ((zone.reading_kwh / total) * 100).toFixed(0) : 0;
+          const kw = zoneKw(zone);
           return (
             <div
               key={zone.zone_name}
@@ -131,10 +111,8 @@ export default function UtilityMainMeter({ className = '' }) {
                 </span>
               </div>
               <div className="flex items-center gap-1 shrink-0 ml-auto font-mono">
-                <strong className="text-slate-900 font-bold">
-                  {zone.reading_kwh.toFixed(1)}
-                </strong>
-                <span className="text-[10px] text-slate-400">kWh</span>
+                <strong className="text-slate-900 font-bold">{kw.toFixed(1)}</strong>
+                <span className="text-[10px] text-slate-400">kW</span>
               </div>
             </div>
           );

@@ -54,7 +54,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       >
         <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
           <span>Hour: {label}</span>
-          <span style={{ color: '#f8fafc' }}>{total.toFixed(1)} kWh Total</span>
+          <span style={{ color: '#f8fafc' }}>{total.toFixed(1)} kW Total</span>
         </div>
         <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '4px' }}>
           {payload.map((entry, index) => (
@@ -70,7 +70,7 @@ const CustomTooltip = ({ active, payload, label }) => {
               }}
             >
               <span>{entry.name}:</span>
-              <strong style={{ color: '#fff' }}>{(Number(entry.value) || 0).toFixed(1)} kWh</strong>
+              <strong style={{ color: '#fff' }}>{(Number(entry.value) || 0).toFixed(1)} kW</strong>
             </div>
           ))}
         </div>

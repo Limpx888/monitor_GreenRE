@@ -1,15 +1,25 @@
-"""BDG2 / IoT Telemetry Streamer for GreenRE Building EMS.
+"""BDG2 / IoT Telemetry Streamer for GreenRE Building EMS — v2.0
 
-Features:
+New in v2.0
+-----------
+* Emits full power-quality payload: voltage_v, current_a, power_factor,
+  reactive_kvar, and demand_kw alongside reading_kwh.
+* Power-quality values are physically realistic for a Malaysian commercial
+  building (415 V, 50 Hz, lagging PF 0.85–0.97).
+* Warm-up batch also populates PQ fields so charts have history on boot.
+
+Features
+--------
 1. 24-Hour Instant Database Warm-Up on Boot (prevents blank/single-point charts)
 2. Global Demo State Bus Polling (/api/v1/demo/scenario):
-   - 'nominal': Standard GreenRE compliant baseline
-   - 'l14_anomaly' (or 'cool_night_gap'): Spikes Floor L14 to 420.0 kWh (AHU Damper Fault)
-   - 'tropical_heatwave': High weather-driven baseline
+   - 'nominal':        Standard GreenRE compliant baseline
+   - 'l14_anomaly'     (or 'cool_night_gap'): Spikes Floor L14 (AHU Damper Fault)
+   - 'tropical_heatwave': High weather-driven baseline + low PF
 """
 
 import argparse
 import asyncio
+import math
 import os
 import random
 from datetime import datetime, timedelta, timezone
@@ -25,58 +35,197 @@ DEFAULT_SCENARIO_URLS = [
     "http://localhost:8000/api/v1/demo/scenario",
 ]
 
+# ---------------------------------------------------------------------------
+# Physical constants (Light Exchange @ 415 V, 50 Hz, 3-phase)
+# ---------------------------------------------------------------------------
+NOMINAL_VOLTAGE = 415.0    # line-to-line RMS, V
+PHASE_VOLTAGE   = NOMINAL_VOLTAGE / math.sqrt(3)   # ≈ 239.6 V L-N
+INTERVAL_MINUTES = 15.0    # BDG2 native interval — kW = kWh * (60 / interval)
 
-async def warmup_database(client: httpx.AsyncClient, ingest_url: str):
-    """Instantly bulk-injects 24 hours of historical data into the database before live streaming."""
-    print("[WARMUP] Starting 24-hour historical data warm-up...")
+
+def _pq_reading(
+    kwh: float,
+    pf: float,
+    jitter: callable,
+    interval_minutes: float = INTERVAL_MINUTES,
+) -> dict:
+    """Derive a physically consistent PQ record from energy and PF.
+
+    Parameters
+    ----------
+    kwh : float         Interval energy (kWh)
+    pf  : float         Target displacement power factor
+    jitter : callable   Noise function
+    interval_minutes    Measurement window (default 15 min)
+
+    Returns dict with all six new fields.
+    """
+    # Demand (average kW over the interval)
+    demand_kw = round(kwh * (60.0 / interval_minutes), 2)
+
+    # Voltage: nominal ± 2 % (within Malaysian TNB ± 6 % tolerance)
+    v = round(jitter(PHASE_VOLTAGE, pct=0.02), 1)
+
+    # Current I = P / (V × PF)   (single-phase equivalent of 3-phase)
+    if pf > 0 and v > 0:
+        current_a = round(demand_kw * 1000.0 / (v * pf * math.sqrt(3)), 2)
+    else:
+        current_a = 0.0
+
+    # Reactive power Q = P × tan(θ)
+    theta = math.acos(max(0.01, min(pf, 1.0)))
+    kvar = round(demand_kw * math.tan(theta), 2)
+
+    return {
+        "demand_kw":     demand_kw,
+        "voltage_v":     v,
+        "current_a":     current_a,
+        "power_factor":  round(pf, 4),
+        "reactive_kvar": kvar,
+    }
+
+
+def _jitter(base: float, pct: float = 0.03, enabled: bool = True) -> float:
+    """Apply ±pct% random noise to base value."""
+    if not enabled:
+        return round(base, 2)
+    return round(base * random.uniform(1.0 - pct, 1.0 + pct), 2)
+
+
+# ---------------------------------------------------------------------------
+# Floor profiles: floor_id -> (base_kwh, nominal_pf)
+#
+# IMPORTANT: Each floor_id must exist in the PostgreSQL floors table.
+# DB mapping (from seed.py):
+#   zone-a (M&E Plant):  B2, B1, LG
+#   zone-b (Podium):     GF, L1, L2, L3
+#   zone-c (Office):     L4-L12, L13
+#   zone-d (Hyatt):      L14-L28
+#   zone-e (Amenities):  L29, L30, L31
+# ---------------------------------------------------------------------------
+FLOOR_PROFILES = {
+    # zone-a M&E Plant
+    "LG":  (12.5, 0.91),   # Lower ground M&E / BOH
+    # zone-b Podium
+    "GF":  (48.0, 0.93),   # Ground floor lobby + retail
+    # zone-c Office
+    "L5":  (35.5, 0.92),   # Representative office floor
+    # zone-d Hyatt Hotel
+    "L14": (45.2, 0.89),   # Hyatt guest rooms
+    # zone-e Amenities
+    "L30": (18.1, 0.95),   # Pool / gym / spa
+}
+
+ANOMALY_PROFILES = {
+    # floor_id: (anomaly_kwh, anomaly_pf)
+    "LG":  (12.5, 0.91),
+    "GF":  (48.0, 0.93),
+    "L5":  (35.5, 0.92),
+    "L14": (420.0, 0.72),  # Damper bypass -> chiller fights -> very low PF
+    "L30": (18.1, 0.95),
+}
+
+HEATWAVE_PROFILES = {
+    "LG":  (16.0, 0.90),
+    "GF":  (54.0, 0.91),
+    "L5":  (45.0, 0.90),
+    "L14": (415.0, 0.74),  # Still low PF under heat stress
+    "L30": (22.0, 0.93),
+}
+
+
+
+def _build_reading(
+    floor_id: str,
+    timestamp: str,
+    kwh: float,
+    pf: float,
+    fluctuate: bool = True,
+) -> dict:
+    def j(base, pct=0.03):
+        return _jitter(base, pct=pct, enabled=fluctuate)
+
+    noisy_kwh = j(kwh)
+    noisy_pf  = min(1.0, j(pf, pct=0.01))  # PF jitter is smaller
+
+    pq = _pq_reading(noisy_kwh, noisy_pf, j)
+
+    return {
+        "timestamp":  timestamp,
+        "floor_id":   floor_id,
+        "meter_type": "electricity",
+        "reading_kwh": noisy_kwh,
+        **pq,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 24-hour warm-up
+# ---------------------------------------------------------------------------
+
+async def warmup_database(client: httpx.AsyncClient, ingest_url: str, fluctuate: bool = True):
+    """Bulk-inject 24 hours of historical data with full PQ fields."""
+    print("[WARMUP] Starting 24-hour historical data warm-up (with PQ fields)...")
     now = datetime.now(timezone.utc)
     warmup_payload = []
 
-    # Trace back 24 hours, generating data for 24 distinct hourly timestamps
     for i in range(24, 0, -1):
         hist_time = (now - timedelta(hours=i)).isoformat().replace("+00:00", "Z")
-
-        # Diurnal load curve shaping for realistic historical replay
         hour = (now.hour - i) % 24
         is_daytime = 8 <= hour <= 18
         office_mult = 2.2 if is_daytime else 1.0
 
-        warmup_payload.extend([
-            {"timestamp": hist_time, "floor_id": "LG",  "meter_type": "electricity", "reading_kwh": round(12.0 + (i % 3) * 0.8, 2)},
-            {"timestamp": hist_time, "floor_id": "GF",  "meter_type": "electricity", "reading_kwh": round(40.0 + (i % 6) * 1.5, 2)},
-            {"timestamp": hist_time, "floor_id": "L5",  "meter_type": "electricity", "reading_kwh": round(30.0 * office_mult + (i % 4), 2)},
-            {"timestamp": hist_time, "floor_id": "L14", "meter_type": "electricity", "reading_kwh": round(45.0 + (i % 5) * 1.2, 2)},
-            {"timestamp": hist_time, "floor_id": "L30", "meter_type": "electricity", "reading_kwh": round(18.0 + (i % 3) * 0.5, 2)},
-        ])
+        base_kwh = {
+            "LG":  12.0 + (i % 3) * 0.8,
+            "GF":  40.0 + (i % 6) * 1.5,
+            "L5":  30.0 * office_mult + (i % 4),
+            "L14": 45.0 + (i % 5) * 1.2,
+            "L30": 18.0 + (i % 3) * 0.5,
+        }
+
+        for floor_id, kwh in base_kwh.items():
+            nominal_pf = FLOOR_PROFILES[floor_id][1]
+            warmup_payload.append(
+                _build_reading(floor_id, hist_time, kwh, nominal_pf, fluctuate)
+            )
 
     try:
         response = await client.post(ingest_url, json=warmup_payload, timeout=20.0)
         if response.status_code == 200:
-            print(f"[WARMUP - OK] 24-hour warm-up complete! Injected {len(warmup_payload)} records across 5 zones.")
+            data = response.json()
+            inserted = data.get("inserted_count", len(warmup_payload))
+            rejected = data.get("rejected_count", 0)
+            print(
+                f"[WARMUP - OK] 24-hour warm-up complete! "
+                f"Inserted {inserted} / Rejected {rejected} records (5 floors × 24 hours)."
+            )
         else:
             print(f"[WARMUP - WARN] Response {response.status_code}: {response.text}")
     except Exception as exc:
         print(f"[WARMUP - WARN] Warning: {exc}")
 
 
+# ---------------------------------------------------------------------------
+# Live streaming loop
+# ---------------------------------------------------------------------------
+
 async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = True):
     target_urls = [url] if url else DEFAULT_INGEST_URLS
     active_ingest_url = target_urls[0]
 
     scenario_urls = DEFAULT_SCENARIO_URLS
-    active_scenario_url = scenario_urls[0]
 
-    print(f"[streamer] Initializing 5-zone IoT simulator with State Bus remote control")
-    print(f"[streamer] Ingest endpoint: {active_ingest_url} | Polling interval: {interval}s")
+    print("[streamer] EMS IoT Simulator v2.0 — power-quality enabled")
+    print(f"[streamer] Ingest: {active_ingest_url} | Interval: {interval}s")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Step 1: Instant warm-up of past 24 hours
-        await warmup_database(client, active_ingest_url)
+        # Step 1: Warm-up
+        await warmup_database(client, active_ingest_url, fluctuate)
 
-        # Step 2: Continuous live streaming loop
+        # Step 2: Live loop
         print(f"[STREAM] Entering real-time streaming mode ({interval}s ticks)...")
         while True:
-            # 1. Query the current scenario state from FastAPI State Bus
+            # Query current scenario
             current_mode = "nominal"
             for s_url in scenario_urls:
                 try:
@@ -84,59 +233,53 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
                     if s_resp.status_code == 200:
                         data = s_resp.json()
                         current_mode = data.get("current_mode") or data.get("mode", "nominal")
-                        active_scenario_url = s_url
                         break
                 except Exception:
                     continue
 
-            # 2. Modulate power consumption based on active scenario
-            # Dynamic jitter (+-3%) for live realism
-            jitter = lambda base: round(base * (random.uniform(0.97, 1.03) if fluctuate else 1.0), 2)
-
+            # Select profile set
             if current_mode in ("l14_anomaly", "cool_night_gap"):
-                # Cool Night Anomaly: Floor L14 surges to 420 kWh due to damper bypass
-                lg_kwh = jitter(12.5)
-                gf_kwh = jitter(48.0)
-                l5_kwh = jitter(35.5)
-                l14_kwh = jitter(420.0)   # Anomalous fault spike
-                l30_kwh = jitter(18.1)
-                mode_label = "[ALERT - L14 ANOMALY FAULT (420.0 kWh)]"
+                profiles = ANOMALY_PROFILES
+                mode_label = "[ALERT - L14 ANOMALY FAULT (AHU damper bypass)]"
             elif current_mode == "tropical_heatwave":
-                # Tropical Heatwave: Weather-driven lift across cooling loads
-                lg_kwh = jitter(16.0)
-                gf_kwh = jitter(54.0)
-                l5_kwh = jitter(45.0)
-                l14_kwh = jitter(415.0)
-                l30_kwh = jitter(22.0)
-                mode_label = "[HEATWAVE - High Ambient Baseline]"
+                profiles = HEATWAVE_PROFILES
+                mode_label = "[HEATWAVE - High ambient, low PF chiller stress]"
             else:
-                # Nominal / Live baseline
-                lg_kwh = jitter(12.5)
-                gf_kwh = jitter(48.0)
-                l5_kwh = jitter(35.5)
-                l14_kwh = jitter(45.2)
-                l30_kwh = jitter(18.1)
-                mode_label = "[NOMINAL - Live Normal Stream]"
+                profiles = FLOOR_PROFILES
+                mode_label = "[NOMINAL - Live normal stream]"
 
             current_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            batch_payload = []
+            total_kwh = 0.0
+            total_kw = 0.0
 
-            batch_payload = [
-                {"timestamp": current_time, "floor_id": "LG",  "meter_type": "electricity", "reading_kwh": lg_kwh},   # Zone 1
-                {"timestamp": current_time, "floor_id": "GF",  "meter_type": "electricity", "reading_kwh": gf_kwh},   # Zone 2
-                {"timestamp": current_time, "floor_id": "L5",  "meter_type": "electricity", "reading_kwh": l5_kwh},   # Zone 3
-                {"timestamp": current_time, "floor_id": "L14", "meter_type": "electricity", "reading_kwh": l14_kwh},  # Zone 4
-                {"timestamp": current_time, "floor_id": "L30", "meter_type": "electricity", "reading_kwh": l30_kwh},  # Zone 5
-            ]
+            for floor_id, (base_kwh, base_pf) in profiles.items():
+                kwh_value = base_kwh
+                reading = _build_reading(floor_id, current_time, kwh_value, base_pf, fluctuate)
+                # Demand is derived in _pq_reading: kW = kWh * (60 / 15 min)
+                batch_payload.append(reading)
+                total_kwh += reading["reading_kwh"]
+                total_kw += reading["demand_kw"]
 
-            total_batch = round(sum(p["reading_kwh"] for p in batch_payload), 1)
+            total_kwh = round(total_kwh, 1)
+            total_kw = round(total_kw, 1)
 
-            # 3. Post telemetry batch to FastAPI
+            # Post telemetry
             sent = False
             for u in target_urls:
                 try:
                     response = await client.post(u, json=batch_payload)
                     if response.status_code == 200:
-                        print(f"[{current_time}] Mode: {mode_label} | Total: {total_batch} kWh -> {response.status_code}")
+                        data = response.json()
+                        alarms = data.get("alarm_count", 0)
+                        alarm_tag = f" | ⚠ {alarms} alarm(s)" if alarms else ""
+                        print(
+                            f"[{current_time}] {mode_label} | "
+                            f"Demand: {total_kw} kW | Energy: {total_kwh} kWh | "
+                            f"PF range: {min(r['power_factor'] for r in batch_payload):.3f}–"
+                            f"{max(r['power_factor'] for r in batch_payload):.3f}"
+                            f"{alarm_tag}"
+                        )
                         target_urls = [u]
                         sent = True
                         break
@@ -144,16 +287,22 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
                     continue
 
             if not sent:
-                print(f"[{current_time}] Connection attempt failed to backend. Retrying in {interval}s...")
+                print(f"[{current_time}] Connection failed. Retrying in {interval}s...")
 
             await asyncio.sleep(interval)
 
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
 def main():
-    parser = argparse.ArgumentParser(description="GreenRE 5-Zone Batch Telemetry Streamer")
+    parser = argparse.ArgumentParser(description="GreenRE 5-Zone PQ Telemetry Streamer v2.0")
     parser.add_argument("--url", default=None, help="Backend ingestion endpoint")
-    parser.add_argument("--interval", type=float, default=5.0, help="Stream interval in seconds (default: 5.0)")
-    parser.add_argument("--no-jitter", action="store_true", help="Send fixed values without noise")
+    parser.add_argument("--interval", type=float, default=5.0,
+                        help="Stream interval in seconds (default: 5.0)")
+    parser.add_argument("--no-jitter", action="store_true",
+                        help="Send fixed values without noise")
     args = parser.parse_args()
 
     asyncio.run(stream_data(url=args.url, interval=args.interval, fluctuate=not args.no_jitter))

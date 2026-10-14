@@ -179,8 +179,7 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
         const zoneId = findZoneId(e.object);
         if (!zoneId) return;
         onSelect(zoneId);
-        const floorId = ZONE_TO_FLOOR[zoneId];
-        if (floorId) navigate(`/floor/${floorId}`);
+        navigate(`/zone/${zoneId}`);
       }}
       onPointerMove={(e) => {
         const zoneId = findZoneId(e.object);

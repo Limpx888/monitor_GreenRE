@@ -4,7 +4,6 @@ import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import NilmChart from '../components/NilmChart';
 import UtilityMainMeter from '../components/UtilityMainMeter';
-import ZoneBreakdown from '../components/ZoneBreakdown';
 import ZoneConsumptionCards from '../components/ZoneConsumptionCards';
 import BmsTelemetryDrawer from '../components/BmsTelemetryDrawer';
 import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
@@ -20,6 +19,8 @@ export default function DashboardPage() {
   const [bmsTelemetry, setBmsTelemetry] = useState(null);
   const [bmsLoading, setBmsLoading] = useState(false);
   const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [remediationBusy, setRemediationBusy] = useState(false);
+  const [remediationLog, setRemediationLog] = useState(null);
   const { data: liveConsumption, error: liveError, isLoading: liveLoading } = useZoneConsumption();
   const warningZoneCodes = (liveConsumption?.zones || [])
     .filter((zone) => zone.compliance_status === 'warning')
@@ -291,8 +292,9 @@ export default function DashboardPage() {
   const zonesData = useMemo(() => {
     const energyFor = (code, fallback) => {
       const live = liveByCode[code];
-      if (live && live.energy_kwh > 0) return `${live.energy_kwh} kWh`;
-      return `${fallback} kWh`;
+      const liveKw = live?.demand_kw ?? live?.peak_demand_kw;
+      if (liveKw > 0) return `${liveKw} kW`;
+      return `${fallback} kW`;
     };
     const statusFor = (code, fallbackWarn) => {
       if (liveByCode[code]?.compliance_status === 'warning') return 'warn';
@@ -335,16 +337,32 @@ export default function DashboardPage() {
   }, []);
 
   const applyRemediation = async () => {
+    setRemediationBusy(true);
+    setRemediationLog(null);
     try {
-      const res = await fetch('http://localhost:5000/api/ai/recommend', {
+      const res = await fetch('/api/v1/control/remediate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zoneId: selectedZone, telemetryData: { energy: nilmZones.hotel } }),
+        body: JSON.stringify({
+          action: 'reset_damper',
+          floor_id: complianceGap?.anomaly_floor || 'L14',
+          register_addr: 12,
+          target_val: 15,
+        }),
       });
-      const data = await res.json();
-      alert(data.recommendation || data.message);
+      const result = await res.json();
+      setRemediationLog(result);
+      if (result.status === 'SUCCESS') {
+        setActionSuccess(true);
+        setTimeout(() => setActionSuccess(false), 3500);
+      }
     } catch (e) {
-      alert('Action dispatched to Teams: Technician deployed to Floor L14 to recalibrate fresh air damper actuator.');
+      setRemediationLog({
+        status: 'FAILED',
+        log: 'OT Alert: control API unreachable. Command was not verified.',
+      });
+    } finally {
+      setRemediationBusy(false);
     }
   };
 
@@ -404,8 +422,8 @@ export default function DashboardPage() {
               }, 150);
             }}
             onClick={() => {
-              if (hoveredZone.floorId) {
-                navigate(`/floor/${hoveredZone.floorId}`);
+              if (hoveredZone.zoneId) {
+                navigate(`/zone/${hoveredZone.zoneId}`);
               }
             }}
           >
@@ -783,7 +801,7 @@ export default function DashboardPage() {
                       🌡️ Outdoor: {complianceGap.outdoor_temp}°C (Cool Night)
                     </span>
                     <span style={{ fontSize: '0.58rem', background: '#fee2e2', color: '#991b1b', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                      ⚡ Hotel Load: {complianceGap.measured_load} kWh (+{complianceGap.deviation_pct}%)
+                      ⚡ Hotel Load: {complianceGap.measured_load} kW (+{complianceGap.deviation_pct}%)
                     </span>
                   </div>
                   <div className="alert-desc" style={{ color: '#881337', marginTop: '2px', lineHeight: '1.45', fontSize: '0.68rem' }}>
@@ -849,19 +867,30 @@ export default function DashboardPage() {
           </div>
 
           <button
-            onClick={async () => {
-              await applyRemediation();
-              setActionSuccess(true);
-              setTimeout(() => setActionSuccess(false), 3500);
-            }}
-            className="btn-remediation"
+            onClick={applyRemediation}
+            className="btn-remediation bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             type="button"
+            disabled={remediationBusy}
             style={{
               background: actionSuccess ? 'linear-gradient(135deg, #10b981, #059669)' : undefined
             }}
           >
-            {actionSuccess ? '✓ Action Dispatched to Teams' : 'Approve Action in Teams'}
+            {remediationBusy
+              ? 'Executing & verifying…'
+              : actionSuccess
+                ? '✓ Damper verified at 15%'
+                : 'Apply Remediation (Execute & Verify)'}
           </button>
+          {remediationLog && (
+            <div
+              className={`mt-2 rounded-lg px-3 py-2 text-[11px] font-semibold ${remediationLog.status === 'SUCCESS'
+                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800'
+                : 'border border-red-400 bg-red-50 text-red-800 animate-pulse'
+                }`}
+            >
+              {remediationLog.status === 'SUCCESS' ? remediationLog.log : `OT Alert: ${remediationLog.log}`}
+            </div>
+          )}
         </div>
       </div>
 
