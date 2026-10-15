@@ -83,20 +83,24 @@ def _try_engine(url: str):
 
 
 def build_engine():
-    raw = os.getenv("DATABASE_URL", "")
+    raw = os.getenv("DATABASE_URL", "").strip()
     last_error = None
-    for url in candidate_database_urls(raw):
-        host = url.split("@")[-1].split("/")[0]
+    if raw:
         try:
-            engine = _try_engine(url)
-            print(f"[EMS] Connected to Postgres via {host}")
-            return engine
-        except Exception as error:
-            last_error = error
-            print(f"[EMS] Postgres candidate failed ({host}): {error.__class__.__name__}")
+            for url in candidate_database_urls(raw):
+                host = url.split("@")[-1].split("/")[0]
+                try:
+                    engine = _try_engine(url)
+                    print(f"[EMS] Connected to Postgres via {host}")
+                    return engine
+                except Exception as error:
+                    last_error = error
+                    print(f"[EMS] Postgres candidate failed ({host}): {error.__class__.__name__}")
+        except Exception as err:
+            last_error = err
 
     fallback = os.getenv("EMS_SQLITE_FALLBACK", "sqlite:///./ems_local.db")
-    print(f"[EMS] Remote Postgres unreachable; using local SQLite {fallback}")
+    print(f"[EMS] Remote Postgres not configured or unreachable; using local SQLite {fallback}")
     if last_error:
         print(f"[EMS] Last Postgres error: {last_error.__class__.__name__}")
     return create_engine(fallback, pool_pre_ping=True)

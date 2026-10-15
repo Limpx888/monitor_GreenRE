@@ -52,8 +52,13 @@ export default function DashboardPage() {
   });
 
   // 4. Real-time NILM 4-zone disaggregation results 
-  // (在 Live 模式下会被 useSWR 真实数据覆盖，设为 null 即可)
-  const [nilmZones, setNilmZones] = useState(null);
+  const [nilmZones, setNilmZones] = useState({
+    total: 1007,
+    hotel: 420,
+    office: 120,
+    podium: 90,
+    me: 92,
+  });
 
   // 5. 默认合规状态改为 COMPLIANT (绿色无报警状态)
   const [complianceGap, setComplianceGap] = useState({
@@ -1059,7 +1064,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="bottom-pills">
-        {['Dashboard', 'Reserve Management', 'Waste Management', 'CE'].map((tab) => (
+        {['Dashboard', 'Reserve Management', 'Waste Management', 'Water Management'].map((tab) => (
           <button
             key={tab}
             type="button"
@@ -1069,6 +1074,8 @@ export default function DashboardPage() {
                 navigate('/reservations');
               } else if (tab === 'Waste Management') {
                 navigate('/waste');
+              } else if (tab === 'Water Management') {
+                navigate('/water');
               } else {
                 setActiveTab(tab);
               }
