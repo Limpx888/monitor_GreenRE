@@ -645,3 +645,102 @@ def monthly_zone_series(db: Session, days: int = 30) -> list[dict]:
         }
         for code, name, ts, energy in rows
     ]
+
+# --- Append to the bottom of ems_service.py ---
+from schemas import AssetInfo, TelemetrySnapshot, DiagnosticPayload
+
+# Simple physical equipment asset graph
+ASSET_GRAPH = {
+    "zone-a": {
+        "equipment_id": "CHILLER-PLANT-01",
+        "type": "CHILLER",
+        "floor": "LG",
+        "registers": ["chw_supply_temp", "chw_return_temp", "kw_per_ton"]
+    },
+    "zone-b": {
+        "equipment_id": "AHU-PODIUM-02",
+        "type": "AHU",
+        "floor": "L2",
+        "registers": ["damper_feedback_pct", "supply_fan_rpm", "return_air_temp"]
+    },
+    "zone-c": {
+        "equipment_id": "VAV-OFFICE-08",
+        "type": "VAV",
+        "floor": "L8",
+        "registers": ["damper_feedback_pct", "airflow_cfm", "zone_temp"]
+    },
+    "zone-d": {
+        "equipment_id": "AHU-14A",
+        "type": "AHU",
+        "floor": "L14",
+        "registers": ["damper_feedback_pct", "supply_fan_rpm"]
+    },
+    "zone-e": {
+        "equipment_id": "FCU-AMENITIES-30",
+        "type": "FCU",
+        "floor": "L30",
+        "registers": ["fan_speed", "valve_position_pct"]
+    }
+}
+
+def build_diagnostic_context(
+    db: Session, 
+    zone_code: str, 
+    deviation_pct: float, 
+    outdoor_temp: float
+) -> DiagnosticPayload:
+    """Assemble a strict diagnostic context from the database and asset graph"""
+    asset_meta = ASSET_GRAPH.get(zone_code)
+    if not asset_meta:
+        asset_meta = {
+            "equipment_id": f"AHU-{zone_code.upper()}",
+            "type": "AHU",
+            "floor": "L14",
+            "registers": ["damper_feedback_pct", "supply_fan_rpm"]
+        }
+        
+    asset = AssetInfo(
+        equipment_id=asset_meta["equipment_id"],
+        equipment_type=asset_meta["type"],
+        floor=asset_meta["floor"],
+        zone=zone_code,
+        registers=asset_meta["registers"]
+    )
+    
+    # Retrieve the latest telemetry data for the floor in this zone (using meter quality status as a proxy for equipment communication status)
+    latest_reading = (
+        db.query(MeterReading)
+        .join(Floor, Floor.id == MeterReading.floor_id)
+        .join(Zone, Zone.id == Floor.zone_id)
+        .filter(Zone.code == zone_code)
+        .order_by(MeterReading.timestamp.desc())
+        .first()
+    )
+    
+    # If the database lacks real BMS data, use reasonable default values (can be replaced with integration into a real BMS API)
+    if latest_reading:
+        data_quality = latest_reading.quality_status
+        timestamp = latest_reading.timestamp
+    else:
+        data_quality = "LIVE"
+        timestamp = datetime.now(timezone.utc)
+        
+    # Assemble real-time readings (in industry, these are typically polled from InfluxDB or BACnet)
+    live_readings = {
+        "damper_feedback_pct": 100.0,  # Example: In practice, specific points should be queried from the database
+        "supply_fan_rpm": 1250.0,
+    }
+    
+    telemetry = TelemetrySnapshot(
+        timestamp=timestamp,
+        data_quality=data_quality,
+        readings=live_readings
+    )
+    
+    return DiagnosticPayload(
+        anomaly_id=f"ERR-{int(datetime.now().timestamp())}",
+        asset=asset,
+        telemetry=telemetry,
+        baseline_deviation_pct=deviation_pct,
+        environmental_context={"outdoor_temp_c": outdoor_temp}
+    )

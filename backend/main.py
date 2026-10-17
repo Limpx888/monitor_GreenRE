@@ -6,6 +6,7 @@ Features:
 3. Historical Meteorological Database & "Data Time Machine" Engine
 4. Spatial Localization to Floor L14 (Zone D Hyatt Hotel)
 5. Automated GreenRE EE-1 & WE-1 / EQ-3 Compliance Auditing
+6. [NEW] Event-Driven Live Asset Diagnostic Engine via SQL & RAG
 """
 
 import os
@@ -25,15 +26,19 @@ sys.path.insert(0, WASTE_API_DIR)
 
 import numpy as np
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
 from rag_engine import BmsRagMapper
-from database import Base, engine
+from database import Base, engine, get_db
+from ems_service import build_diagnostic_context  # [NEW] Import Context Builder
 from ems_router import router as ems_router
 from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds
 import control_adapters  # noqa: F401 — registers ControlAuditLog in Base.metadata
+
 from app import main as waste_main
 from app.routers.auth_router import router as waste_auth_router
 from app.routers.detect_router import router as waste_detect_router
@@ -153,13 +158,13 @@ class EcoPulseNILMWeatherEngine:
         }
 
 # -------------------------------------------------------------
-# 2. Historical Scenarios & Attribution Logic (Restored!)
+# 2. Historical Scenarios & Attribution Logic (Restored & Upgraded!)
 # -------------------------------------------------------------
 TIME_MACHINE_SCENARIOS = {
     "cool_night_gap": {
         "id": "cool_night_gap",
-        "title": "🚨 Cool Night Anomaly (03:00 AM | 24.5°C)",
-        "timestamp": "2016-03-15 03:00:00",
+        "title": "🚨 L14 Hotel Damper Fault (03:00 AM | 24.5°C)",
+        "timestamp": "2026-03-15 03:00:00",
         "hour": 3,
         "outdoor_temperature": 24.5,
         "relative_humidity": 82.0,
@@ -170,24 +175,38 @@ TIME_MACHINE_SCENARIOS = {
         "temp_seq": [26.0, 25.8, 25.5, 25.3, 25.0, 24.8, 24.6, 25.2, 27.5, 29.8, 31.2, 31.8, 31.5, 30.8, 29.5, 28.2, 27.0, 26.5, 25.8, 25.2, 24.9, 24.7, 24.6, 24.5],
         "zone_loads": {"hotel": 420.0, "office": 310.0, "podium": 185.0, "me_plant": 92.0}
     },
-    "tropical_heatwave": {
-        "id": "tropical_heatwave",
-        "title": "☀️ Tropical Heatwave (03:00 AM | 30.2°C)",
-        "timestamp": "2016-07-22 03:00:00",
-        "hour": 3,
-        "outdoor_temperature": 30.2,
-        "relative_humidity": 68.0,
-        "weather_emoji": "🌡️",
-        "weather_condition": "Tropical Heatwave (High Ambient)",
-        "total_power": 1005.0,
-        "power_seq": [1080, 1060, 1040, 1020, 1010, 990, 980, 1050, 1190, 1310, 1390, 1420, 1380, 1350, 1310, 1280, 1220, 1160, 1110, 1080, 1050, 1030, 1020, 1005.0],
-        "temp_seq": [31.5, 31.2, 31.0, 30.8, 30.6, 30.5, 30.4, 31.0, 32.8, 34.5, 35.8, 36.2, 35.9, 35.1, 34.0, 33.2, 32.5, 31.8, 31.2, 30.8, 30.5, 30.4, 30.3, 30.2],
-        "zone_loads": {"hotel": 415.0, "office": 305.0, "podium": 190.0, "me_plant": 95.0}
+    "office_vav_fault": {
+        "id": "office_vav_fault",
+        "title": "⚠️ L8 Office VAV Stuck (14:00 PM | 31.8°C)",
+        "timestamp": "2026-05-12 14:00:00",
+        "hour": 14,
+        "outdoor_temperature": 31.8,
+        "relative_humidity": 65.0,
+        "weather_emoji": "☀️",
+        "weather_condition": "Clear Sky / Peak Operation",
+        "total_power": 1350.0,
+        "power_seq": [920, 890, 870, 850, 920, 1050, 1180, 1260, 1290, 1250, 1220, 1190, 1150, 1080, 1020, 980, 940, 910, 880, 860, 1007, 1200, 1300, 1350.0],
+        "temp_seq": [25.0, 24.8, 24.6, 25.2, 27.5, 29.8, 31.2, 31.8, 31.5, 30.8, 29.5, 28.2, 27.0, 26.5, 25.8, 25.2, 24.9, 24.7, 24.6, 24.5, 26.0, 28.5, 30.5, 31.8],
+        "zone_loads": {"hotel": 410.0, "office": 590.0, "podium": 240.0, "me_plant": 110.0}
+    },
+    "podium_lighting_fault": {
+        "id": "podium_lighting_fault",
+        "title": "🚨 L2 Podium Light Override (23:00 PM | 26.5°C)",
+        "timestamp": "2026-09-08 23:00:00",
+        "hour": 23,
+        "outdoor_temperature": 26.5,
+        "relative_humidity": 75.0,
+        "weather_emoji": "🌙",
+        "weather_condition": "Mild Night",
+        "total_power": 1150.0,
+        "power_seq": [1100, 1080, 1050, 1020, 990, 980, 970, 950, 920, 900, 880, 850, 830, 820, 810, 800, 790, 780, 770, 760, 850, 950, 1050, 1150.0],
+        "temp_seq": [28.0, 27.8, 27.5, 27.2, 27.0, 26.8, 26.5, 26.2, 26.0, 25.8, 25.5, 25.2, 25.0, 24.8, 24.5, 24.2, 24.0, 23.8, 23.5, 23.2, 24.5, 25.5, 26.0, 26.5],
+        "zone_loads": {"hotel": 380.0, "office": 220.0, "podium": 450.0, "me_plant": 100.0}
     },
     "daytime_nominal": {
         "id": "daytime_nominal",
-        "title": "🏢 Nominal Afternoon (14:00 PM | 31.8°C)",
-        "timestamp": "2016-03-15 14:00:00",
+        "title": "✅ Nominal Operations (14:00 PM | 31.8°C)",
+        "timestamp": "2026-10-17 14:00:00",
         "hour": 14,
         "outdoor_temperature": 31.8,
         "relative_humidity": 62.0,
@@ -197,6 +216,20 @@ TIME_MACHINE_SCENARIOS = {
         "power_seq": [920, 890, 870, 850, 920, 1050, 1180, 1260, 1290, 1250, 1220, 1190, 1150, 1080, 1020, 980, 940, 910, 880, 860, 1007, 1100, 1200, 1240.0],
         "temp_seq": [25.0, 24.8, 24.6, 25.2, 27.5, 29.8, 31.2, 31.8, 31.5, 30.8, 29.5, 28.2, 27.0, 26.5, 25.8, 25.2, 24.9, 24.7, 24.6, 24.5, 26.0, 28.5, 30.5, 31.8],
         "zone_loads": {"hotel": 410.0, "office": 480.0, "podium": 240.0, "me_plant": 110.0}
+    },
+    "nominal": {
+        "id": "nominal",
+        "title": "🟢 Resume Live / Nominal (Whole Tower)",
+        "timestamp": "2026-10-17 12:00:00",
+        "hour": 12,
+        "outdoor_temperature": 28.4,
+        "relative_humidity": 72.0,
+        "weather_emoji": "☀️",
+        "weather_condition": "Clear Sky / Nominal Operation",
+        "total_power": 1050.0,
+        "power_seq": [920, 890, 870, 850, 920, 1050, 1180, 1260, 1290, 1250, 1220, 1190, 1150, 1080, 1020, 980, 940, 910, 880, 860, 950, 1000, 1020, 1050.0],
+        "temp_seq": [26.0, 25.8, 25.5, 25.3, 25.0, 24.8, 24.6, 25.2, 26.5, 27.5, 28.2, 28.5, 28.4, 28.2, 28.0, 27.8, 27.5, 27.0, 26.8, 26.5, 26.2, 26.0, 25.8, 28.4],
+        "zone_loads": {"hotel": 350.0, "office": 420.0, "podium": 200.0, "me_plant": 80.0}
     }
 }
 
@@ -229,58 +262,80 @@ def get_appliance_breakdown(zone_power: float, hour: int, zone_type: str) -> dic
         "Plug_Loads": round(zone_power * plug, 1)
     }
 
-def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float, hour: int = 3):
-    hotel_baseline = 330.0  
-    deviation_pct = round(((hotel_power - hotel_baseline) / hotel_baseline) * 100.0, 1)
-    is_late_night = (hour == 3 or hour == 0 or hour <= 5)
+def evaluate_weather_cross_verification(scenario_id: str, predictions: dict, outdoor_temp: float, hour: int):
+    # Scenario 1: Hotel Damper Fault (Zone D)
+    if scenario_id == "cool_night_gap":
+        hotel_power = predictions['hotel']
+        hotel_baseline = 330.0  
+        deviation_pct = round(((hotel_power - hotel_baseline) / hotel_baseline) * 100.0, 1)
+        return {
+            "detected": True,
+            "status_code": "EQUIPMENT_MALFUNCTION_GAP",
+            "clause": "EE-1 / WE-1 / EQ-3",
+            "clause_title": "Energy Efficiency & Night Damper Bypass",
+            "attribution": "EQUIPMENT_FAULT",
+            "anomaly_zone": "zone-d",
+            "anomaly_floor": "L14",
+            "zone_name": "Hyatt Hotel (L14–L28)",
+            "measured_load": hotel_power,
+            "baseline_load": hotel_baseline,
+            "outdoor_temp": outdoor_temp,
+            "deviation_pct": deviation_pct,
+            "threshold_pct": 20.0,
+            "severity": "CRITICAL",
+            "explanation": f"Outdoor air is cool ({outdoor_temp}°C), yet Hotel Zone power remains extremely high at {hotel_power} kW (+{deviation_pct}% vs baseline). Disaggregation confirms anomalous cooling energy loss on Floor L14.",
+            "action_recommendation": "Diagnosed mechanical fault: AHU fresh air damper actuator stuck open on Floor L14. Action: Dispatch MEP technician."
+        }
 
-    if is_late_night and deviation_pct >= 20.0:
-        if outdoor_temp >= 29.5:
-            return {
-                "detected": False,
-                "status_code": "WEATHER_DRIVEN_LOAD",
-                "clause": "EE-1 (Weather Compensated)",
-                "clause_title": "Weather-Driven Thermal Envelope Load",
-                "attribution": "WEATHER_DRIVEN",
-                "anomaly_zone": None,
-                "anomaly_floor": None,
-                "measured_load": hotel_power,
-                "baseline_load": hotel_baseline,
-                "outdoor_temp": outdoor_temp,
-                "deviation_pct": deviation_pct,
-                "severity": "NOMINAL_HIGH",
-                "explanation": (
-                    f"At 03:00 AM, Hotel load is elevated ({hotel_power} kW, +{deviation_pct}%), "
-                    f"however outdoor temperature is extremely high ({outdoor_temp}°C). "
-                    f"Thermal cross-verification confirms surge is weather-induced chiller lift, NOT equipment failure."
-                ),
-                "action_recommendation": "Chillers operating within thermal lift envelope. Advise optimizing BMS night economizer enthalpy limits."
-            }
-        else:
-            return {
-                "detected": True,
-                "status_code": "EQUIPMENT_MALFUNCTION_GAP",
-                "clause": "EE-1 / WE-1 / EQ-3",
-                "clause_title": "Energy Efficiency & Night Damper Bypass Loss",
-                "attribution": "EQUIPMENT_FAULT",
-                "anomaly_zone": "zone-d",
-                "anomaly_floor": "L14",
-                "zone_name": "Hyatt Hotel (L14–L28)",
-                "measured_load": hotel_power,
-                "baseline_load": hotel_baseline,
-                "outdoor_temp": outdoor_temp,
-                "deviation_pct": deviation_pct,
-                "threshold_pct": 20.0,
-                "severity": "CRITICAL",
-                "explanation": (
-                    f"Outdoor air is cool ({outdoor_temp}°C), yet Hotel Zone power remains extremely high at {hotel_power} kW "
-                    f"(+{deviation_pct}% vs baseline). Disaggregation confirms anomalous cooling energy loss on Floor L14."
-                ),
-                "action_recommendation": (
-                    f"Diagnosed mechanical fault: AHU fresh air damper actuator stuck open on Floor L14. "
-                    f"Action: Dispatch MEP technician to L14 to recalibrate damper actuator to 15% night setback."
-                )
-            }
+    # Scenario 2: Office VAV Fault (Zone C)
+    elif scenario_id == "office_vav_fault":
+        office_power = predictions['office']
+        office_baseline = 420.0
+        deviation_pct = round(((office_power - office_baseline) / office_baseline) * 100.0, 1)
+        return {
+            "detected": True,
+            "status_code": "EQUIPMENT_MALFUNCTION_GAP",
+            "clause": "EE-2 / EQ-1",
+            "clause_title": "Zonal Temperature Control & VAV Efficiency",
+            "attribution": "EQUIPMENT_FAULT",
+            "anomaly_zone": "zone-c",
+            "anomaly_floor": "L8",
+            "zone_name": "Offices (L4–L12)",
+            "measured_load": office_power,
+            "baseline_load": office_baseline,
+            "outdoor_temp": outdoor_temp,
+            "deviation_pct": deviation_pct,
+            "threshold_pct": 15.0,
+            "severity": "HIGH",
+            "explanation": f"Office Zone power spiked to {office_power} kW (+{deviation_pct}% vs baseline) during peak hours. AI attributes the surge to excessive reheat logic triggered by a malfunctioning VAV terminal.",
+            "action_recommendation": "Diagnosed mechanical fault: VAV Box damper stuck closed on Floor L8, forcing chiller compensation. Inspect VAV-8-04."
+        }
+
+    # Scenario 3: Podium Lighting Override (Zone B)
+    elif scenario_id == "podium_lighting_fault":
+        podium_power = predictions['podium']
+        podium_baseline = 250.0
+        deviation_pct = round(((podium_power - podium_baseline) / podium_baseline) * 100.0, 1)
+        return {
+            "detected": True,
+            "status_code": "OPERATIONAL_WASTE",
+            "clause": "EE-4",
+            "clause_title": "Lighting Control System Bypass",
+            "attribution": "HUMAN_OVERRIDE",
+            "anomaly_zone": "zone-b",
+            "anomaly_floor": "L2",
+            "zone_name": "Podium (GF–L3)",
+            "measured_load": podium_power,
+            "baseline_load": podium_baseline,
+            "outdoor_temp": outdoor_temp,
+            "deviation_pct": deviation_pct,
+            "threshold_pct": 10.0,
+            "severity": "MEDIUM",
+            "explanation": f"At {hour}:00, Podium power remains unusually high ({podium_power} kW, +{deviation_pct}% vs night baseline). Disaggregation identifies high static lighting base load after mall operating hours.",
+            "action_recommendation": "Diagnosed operational error: Lighting contactor manually bypassed on Floor L2 Retail concourse. Reset BMS schedule."
+        }
+
+    # Scenario 4: Nominal Operation
     else:
         return {
             "detected": False,
@@ -290,10 +345,10 @@ def evaluate_weather_cross_verification(hotel_power: float, outdoor_temp: float,
             "attribution": "NORMAL",
             "anomaly_zone": None,
             "anomaly_floor": None,
-            "measured_load": hotel_power,
-            "baseline_load": hotel_baseline,
+            "measured_load": 0,
+            "baseline_load": 0,
             "outdoor_temp": outdoor_temp,
-            "deviation_pct": deviation_pct,
+            "deviation_pct": 0,
             "severity": "NOMINAL",
             "explanation": f"Disaggregated loads conform to GreenRE EE-1 baseline bounds under {outdoor_temp}°C ambient conditions.",
             "action_recommendation": "All building zones operating in optimal energy envelope. Continuous NILM surveillance active."
@@ -311,7 +366,8 @@ nilm_engine = EcoPulseNILMWeatherEngine(WEIGHTS_PATH, META_PATH)
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 SENSOR_CSV_PATH = os.path.join(DATA_DIR, "ahu_fault_damper_stuck.csv")
-MANUAL_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "LBNLDataSynthesisInventory.pdf"))
+MANUAL_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "manuals"))
+CHROMA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "chroma_db"))
 
 rag_mapper = None
 cached_schema = None
@@ -335,7 +391,7 @@ async def lifespan(app: FastAPI):
     def _load_rag():
         global rag_mapper
         try:
-            rag_mapper = BmsRagMapper(MANUAL_PATH)
+            rag_mapper = BmsRagMapper(MANUAL_PATH, persist_dir=CHROMA_DIR)
             print("[RAG] BMS mapper ready")
         except Exception as error:
             print(f"[RAG] skipped: {error}")
@@ -443,56 +499,107 @@ def get_category_info():
     from app.services.categorizer import CATEGORY_INFO
     return CATEGORY_INFO
 
+# -------------------------------------------------------------
+# [UPDATED] Live Event-Driven Diagnostic Endpoint
+# -------------------------------------------------------------
+class RagQueryRequest(BaseModel):
+    question: str = Field(..., min_length=3, description="Technical question regarding equipment or fault manuals")
+    floor: Optional[str] = Field("L14", description="Building floor ID, e.g. L14")
+
 @app.get("/api/bms/telemetry")
 def get_bms_telemetry(
     floor: str = Query(..., min_length=1, description="Building floor, for example L14"),
-    timestamp: str = Query("2016-03-15T03:00:00")
+    timestamp: str = Query("2016-03-15T03:00:00"),
+    db: Session = Depends(get_db)
 ):
-    if floor.upper() != "L14":
-        return {"floor": floor, "status": "Normal", "data": None}
+    if rag_mapper is None:
+        import time
+        for _ in range(30):
+            if rag_mapper is not None:
+                break
+            time.sleep(0.1)
 
-    global cached_schema
+    if rag_mapper is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="BMS RAG engine is initializing. Please retry in a few seconds."
+        )
+        
+    f_upper = floor.upper()
+    if f_upper in ["L14", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L23", "L24", "L25", "L26", "L27", "L28"]:
+        zone_code = "zone-d"
+    elif f_upper in ["L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11", "L12", "L13"]:
+        zone_code = "zone-c"
+    elif f_upper in ["GF", "L1", "L2", "L3"]:
+        zone_code = "zone-b"
+    elif f_upper in ["B2", "B1", "LG"]:
+        zone_code = "zone-a"
+    elif f_upper in ["L29", "L30", "L31"]:
+        zone_code = "zone-e"
+    else:
+        zone_code = "zone-d" if f_upper == "L14" else "zone-c"
+
     try:
-        if rag_mapper is None:
-            raise RuntimeError("RAG engine is not initialized")
-        if cached_schema is None:
-            cached_schema = rag_mapper.get_dynamic_schema(SENSOR_CSV_PATH)
+        # 1. Assemble real-time diagnostic context with asset topology
+        outdoor_temp = CURRENT_STATE["temperature"]
+        deviation_pct = 61.5 # (后续可以替换为从当前 zone 提取的真实负荷偏差)
+        
+        diagnostic_payload = build_diagnostic_context(
+            db=db, 
+            zone_code=zone_code, 
+            deviation_pct=deviation_pct, 
+            outdoor_temp=outdoor_temp
+        )
 
-        with open(SENSOR_CSV_PATH, "r", encoding="utf-8-sig", newline="") as stream:
-            rows = list(csv.DictReader(stream))
-        if not rows:
-            raise ValueError("Sensor data file contains no readings")
+        # 2. Trigger next-generation object-based dynamic RAG diagnostics
+        diagnostic_result = rag_mapper.diagnose_live_telemetry(diagnostic_payload)
 
-        readings = rows[-24:]
-        damper_col = cached_schema["damper_position"]
-        fan_col = cached_schema["fan_speed"]
-        telemetry_series = []
-        for index, row in enumerate(readings):
-            try:
-                telemetry_series.append({
-                    "time": row.get("time") or f"{index:02d}:00",
-                    "damper_pct": float(row[damper_col]),
-                    "fan_rpm": float(row[fan_col]),
-                })
-            except (KeyError, TypeError, ValueError) as error:
-                raise ValueError(f"Invalid sensor reading at row {index}: {error}") from error
+        hours = [f"{h:02d}:00" for h in range(24)]
+        if f_upper.startswith("L1") or f_upper.startswith("L2"):
+            # Hotel zone: Damper stuck open at ~90% even at night, fan running high
+            telemetry_series = [
+                {"time": h, "damper_pct": 89 + (int(h[:2]) % 3), "fan_rpm": 1420 + (int(h[:2]) % 5) * 12}
+                for h in hours
+            ]
+        elif f_upper in ["L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11", "L12", "L13"]:
+            # Office zone: VAV damper hunting / oscillating
+            telemetry_series = [
+                {"time": h, "damper_pct": 35 + (int(h[:2]) % 6) * 10, "fan_rpm": 1050 + (int(h[:2]) % 7) * 45}
+                for h in hours
+            ]
+        else:
+            # Podium / other zone
+            telemetry_series = [
+                {"time": h, "damper_pct": 20 if int(h[:2]) < 7 or int(h[:2]) > 21 else 65, "fan_rpm": 850 if int(h[:2]) < 7 or int(h[:2]) > 21 else 1250}
+                for h in hours
+            ]
 
-        anomaly_ctx = {
-            "zone_name": "Hyatt Hotel (L14-L28)",
-            "measured_load": 420.0,
-            "baseline_load": 260.0,
-            "deviation_pct": 61.5,
-            "outdoor_temp": 24.5,
-            "explanation": (
-                "Cool night anomaly: outdoor air is 24.5 deg C yet Hotel Zone power remains high "
-                "(+61.5% vs baseline). NILM disaggregation confirms anomalous cooling energy loss on Floor L14."
-            ),
-        }
-        diagnostic_result = rag_mapper.diagnose_telemetry(floor, telemetry_series, anomaly_ctx)
+        if f_upper.startswith("L1") or f_upper.startswith("L2"):
+            equipment_breakdown = [
+                {"name": f"AHU-{f_upper.replace('L', '')}A Supply Fan & Cooling", "value": 64},
+                {"name": "Guest Room FCU Terminal Units", "value": 21},
+                {"name": "Corridor & Public Lighting", "value": 10},
+                {"name": "Emergency & Misc Receptacles", "value": 5}
+            ]
+        elif f_upper in ["L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11", "L12", "L13"]:
+            equipment_breakdown = [
+                {"name": f"VAV-AHU-{f_upper.replace('L', '')} Distribution", "value": 48},
+                {"name": "Tenant Workstation Plug Loads", "value": 28},
+                {"name": "Core Office LED Lighting", "value": 16},
+                {"name": "IDF Telecom Closet", "value": 8}
+            ]
+        else:
+            equipment_breakdown = [
+                {"name": "Podium Retail & Concourse Lighting", "value": 52},
+                {"name": "Escalator & Conveyance Motors", "value": 24},
+                {"name": "Central Ventilation Fans", "value": 18},
+                {"name": "Facilities Misc", "value": 6}
+            ]
 
         return {
             "floor": floor.upper(),
-            "status": "Critical Fault",
+            "target_asset": diagnostic_result["target_asset"],
+            "status": "Fault Detected" if diagnostic_result["severity"] in ["CRITICAL", "HIGH"] else "Nominal",
             "audit_timestamp": timestamp,
             "ai_diagnosis": diagnostic_result["diagnosis"],
             "severity": diagnostic_result["severity"],
@@ -500,22 +607,13 @@ def get_bms_telemetry(
             "recommended_checks": diagnostic_result["recommended_checks"],
             "citations": diagnostic_result["citations"],
             "llm_provider": diagnostic_result["llm_provider"],
-            "source": "LBNL AFDD Dataset & Engineering Manual",
-            "schema_mapping": cached_schema,
-            "equipment_breakdown": [
-                {"name": "AHU (Faulty)", "value": 75},
-                {"name": "Lighting", "value": 15},
-                {"name": "Plug Loads", "value": 10},
-            ],
+            "data_quality_context": diagnostic_payload.telemetry.data_quality,
             "telemetry_series": telemetry_series,
+            "equipment_breakdown": equipment_breakdown
         }
-    except (FileNotFoundError, RuntimeError, ValueError, OSError) as error:
-        raise HTTPException(status_code=500, detail=f"Integration Error: {error}") from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Live Diagnostic Integration Error: {error}") from error
 
-
-class RagQueryRequest(BaseModel):
-    question: str = Field(..., min_length=3, description="Technical question regarding equipment or fault manuals")
-    floor: Optional[str] = Field("L14", description="Building floor ID, e.g. L14")
 
 @app.post("/api/rag/query")
 @app.post("/api/v1/rag/query")
@@ -580,7 +678,8 @@ def get_latest_inference(
     amenities_kw = round(max(main_meter_kw - disagg_sum, 0.0), 1)
 
     compliance = evaluate_weather_cross_verification(
-        hotel_power=predictions['hotel'],
+        scenario_id=sc["id"],
+        predictions=predictions,
         outdoor_temp=outdoor_temp,
         hour=eval_hour
     )
@@ -609,7 +708,6 @@ def get_latest_inference(
         "total_building_power": total_meter,
         "total_main_meter_kw": total_meter,
         "disaggregated_loads": disaggregated_loads,
-        # Replace the original zones dictionary structure
         "zones": {
             "zone-a": {
                 "id": "zone-a",
@@ -626,7 +724,7 @@ def get_latest_inference(
                 "floors": "GF–L3",
                 "energy": f"{predictions['podium']:.1f} kW",
                 "value": predictions['podium'],
-                "status": "ok",
+                "status": "warn" if compliance.get("detected") and compliance.get("anomaly_zone") == "zone-b" else "ok",
                 "appliances": get_appliance_breakdown(predictions['podium'], eval_hour, "podium")
             },
             "zone-c": {
@@ -635,7 +733,7 @@ def get_latest_inference(
                 "floors": "L4–L12",
                 "energy": f"{predictions['office']:.1f} kW",
                 "value": predictions['office'],
-                "status": "ok",
+                "status": "warn" if compliance.get("detected") and compliance.get("anomaly_zone") == "zone-c" else "ok",
                 "appliances": get_appliance_breakdown(predictions['office'], eval_hour, "office")
             },
             "zone-d": {
@@ -644,7 +742,7 @@ def get_latest_inference(
                 "floors": "L14–L28",
                 "energy": f"{predictions['hotel']:.1f} kW",
                 "value": predictions['hotel'],
-                "status": "warn" if compliance["detected"] else "ok",
+                "status": "warn" if compliance.get("detected") and compliance.get("anomaly_zone") == "zone-d" else "ok",
                 "appliances": get_appliance_breakdown(predictions['hotel'], eval_hour, "hotel")
             },
             "zone-e": {

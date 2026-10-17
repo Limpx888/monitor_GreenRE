@@ -14,7 +14,12 @@ export default function FloorLabels({ selectedZone, onHoverZone, anomalyFloor })
       <div className="floor-labels-title">Floor Directory</div>
       {FLOORS.map((floor) => {
         const active = selectedZone === floor.zoneId;
-        const isAnomaly = anomalyFloor === 'L14' && floor.id === 'l14-28';
+        const isAnomaly = (
+          (anomalyFloor === 'L14' && floor.id === 'l14-28') ||
+          (anomalyFloor === 'L8' && floor.id === 'l4-12') ||
+          (anomalyFloor === 'L2' && floor.id === 'l2') ||
+          (anomalyFloor === 'LG' && floor.id === 'lg')
+        );
         return (
           <button
             key={floor.id}

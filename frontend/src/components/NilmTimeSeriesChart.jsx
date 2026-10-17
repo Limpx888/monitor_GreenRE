@@ -78,7 +78,7 @@ export const HOURLY_24H_DATA = {
     { time: '11:00', total: 2150, hotel: 340, office: 910, podium: 310, me: 108 },
     { time: '12:00', total: 2100, hotel: 345, office: 870, podium: 320, me: 108 },
     { time: '13:00', total: 2200, hotel: 345, office: 930, podium: 320, me: 110 },
-    { time: '14:00', total: 2450, hotel: 350, office: 850, podium: 650, me: 110 }, // Nominal afternoon peak
+    { time: '14:00', total: 2450, hotel: 350, office: 850, podium: 650, me: 110 },
     { time: '15:00', total: 2180, hotel: 350, office: 920, podium: 310, me: 108 },
     { time: '16:00', total: 2050, hotel: 355, office: 850, podium: 290, me: 105 },
     { time: '17:00', total: 1890, hotel: 370, office: 740, podium: 265, me: 102 },
@@ -89,7 +89,60 @@ export const HOURLY_24H_DATA = {
     { time: '22:00', total: 1110, hotel: 400, office: 170, podium: 135, me: 87 },
     { time: '23:00', total: 1010, hotel: 390, office: 145, podium: 110, me: 85 },
   ],
+  office_vav_fault: [
+    { time: '00:00', total: 980, hotel: 390, office: 130, podium: 95, me: 85 },
+    { time: '01:00', total: 960, hotel: 380, office: 125, podium: 90, me: 85 },
+    { time: '02:00', total: 940, hotel: 370, office: 120, podium: 85, me: 85 },
+    { time: '03:00', total: 920, hotel: 360, office: 120, podium: 85, me: 85 },
+    { time: '04:00', total: 900, hotel: 350, office: 120, podium: 85, me: 85 },
+    { time: '05:00', total: 920, hotel: 350, office: 125, podium: 85, me: 85 },
+    { time: '06:00', total: 1020, hotel: 350, office: 200, podium: 100, me: 88 },
+    { time: '07:00', total: 1220, hotel: 350, office: 360, podium: 145, me: 92 },
+    { time: '08:00', total: 1520, hotel: 345, office: 580, podium: 195, me: 96 },
+    { time: '09:00', total: 1820, hotel: 340, office: 750, podium: 240, me: 100 },
+    { time: '10:00', total: 2050, hotel: 345, office: 890, podium: 280, me: 105 },
+    { time: '11:00', total: 2200, hotel: 350, office: 960, podium: 310, me: 108 },
+    { time: '12:00', total: 2150, hotel: 355, office: 910, podium: 320, me: 108 },
+    { time: '13:00', total: 2280, hotel: 355, office: 980, podium: 320, me: 110 },
+    { time: '14:00', total: 2350, hotel: 410, office: 590, podium: 240, me: 110 },
+    { time: '15:00', total: 2180, hotel: 350, office: 920, podium: 310, me: 108 },
+    { time: '16:00', total: 2050, hotel: 355, office: 850, podium: 290, me: 105 },
+    { time: '17:00', total: 1890, hotel: 370, office: 740, podium: 265, me: 102 },
+    { time: '18:00', total: 1680, hotel: 390, office: 580, podium: 240, me: 98 },
+    { time: '19:00', total: 1490, hotel: 410, office: 420, podium: 225, me: 95 },
+    { time: '20:00', total: 1380, hotel: 420, office: 320, podium: 205, me: 92 },
+    { time: '21:00', total: 1250, hotel: 410, office: 230, podium: 175, me: 89 },
+    { time: '22:00', total: 1110, hotel: 400, office: 170, podium: 135, me: 87 },
+    { time: '23:00', total: 1010, hotel: 390, office: 145, podium: 110, me: 85 },
+  ],
+  podium_lighting_fault: [
+    { time: '00:00', total: 950, hotel: 380, office: 130, podium: 95, me: 85 },
+    { time: '01:00', total: 920, hotel: 370, office: 125, podium: 90, me: 85 },
+    { time: '02:00', total: 890, hotel: 360, office: 120, podium: 85, me: 85 },
+    { time: '03:00', total: 870, hotel: 350, office: 120, podium: 85, me: 85 },
+    { time: '04:00', total: 850, hotel: 340, office: 120, podium: 85, me: 85 },
+    { time: '05:00', total: 880, hotel: 340, office: 125, podium: 85, me: 85 },
+    { time: '06:00', total: 980, hotel: 340, office: 185, podium: 100, me: 88 },
+    { time: '07:00', total: 1180, hotel: 340, office: 330, podium: 145, me: 92 },
+    { time: '08:00', total: 1480, hotel: 335, office: 540, podium: 195, me: 96 },
+    { time: '09:00', total: 1780, hotel: 330, office: 710, podium: 240, me: 100 },
+    { time: '10:00', total: 1980, hotel: 335, office: 830, podium: 280, me: 105 },
+    { time: '11:00', total: 2150, hotel: 340, office: 910, podium: 310, me: 108 },
+    { time: '12:00', total: 2100, hotel: 345, office: 870, podium: 320, me: 108 },
+    { time: '13:00', total: 2200, hotel: 345, office: 930, podium: 320, me: 110 },
+    { time: '14:00', total: 2150, hotel: 350, office: 850, podium: 350, me: 110 },
+    { time: '15:00', total: 2180, hotel: 350, office: 920, podium: 310, me: 108 },
+    { time: '16:00', total: 2050, hotel: 355, office: 850, podium: 290, me: 105 },
+    { time: '17:00', total: 1890, hotel: 370, office: 740, podium: 265, me: 102 },
+    { time: '18:00', total: 1680, hotel: 390, office: 580, podium: 240, me: 98 },
+    { time: '19:00', total: 1490, hotel: 410, office: 420, podium: 225, me: 95 },
+    { time: '20:00', total: 1380, hotel: 420, office: 320, podium: 205, me: 92 },
+    { time: '21:00', total: 1350, hotel: 410, office: 230, podium: 280, me: 89 },
+    { time: '22:00', total: 1450, hotel: 380, office: 220, podium: 450, me: 100 },
+    { time: '23:00', total: 1380, hotel: 370, office: 180, podium: 430, me: 95 },
+  ],
 };
+HOURLY_24H_DATA.nominal = HOURLY_24H_DATA.daytime_nominal;
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -131,7 +184,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function NilmTimeSeriesChart({ currentTime = '03:00', scenario = 'cool_night_gap' }) {
   const chartData = HOURLY_24H_DATA[scenario] || HOURLY_24H_DATA.cool_night_gap;
-  const isAnomaly = scenario === 'cool_night_gap';
+  const isAnomaly = scenario !== 'nominal' && scenario !== 'daytime_nominal';
 
   return (
     <div

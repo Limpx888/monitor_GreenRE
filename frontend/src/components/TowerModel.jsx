@@ -169,6 +169,8 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
       const isTarget = (zid) => {
         if (anomalyZone && zid === anomalyZone) return true;
         if (anomalyFloor === 'L14' && zid === 'zone-d') return true;
+        if (anomalyFloor === 'L8' && zid === 'zone-c') return true;
+        if (anomalyFloor === 'L2' && zid === 'zone-b') return true;
         return false;
       };
 

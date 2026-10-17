@@ -125,6 +125,22 @@ ANOMALY_PROFILES = {
     "L30": (18.1, 0.95),
 }
 
+OFFICE_VAV_ANOMALY_PROFILES = {
+    "LG":  (15.0, 0.90),
+    "GF":  (48.0, 0.93),
+    "L5":  (145.0, 0.78),  # Office VAV damper stuck -> reheat runaway
+    "L14": (45.2, 0.89),
+    "L30": (18.1, 0.95),
+}
+
+PODIUM_LIGHTING_ANOMALY_PROFILES = {
+    "LG":  (12.5, 0.91),
+    "GF":  (115.0, 0.82),  # Concourse/Ballroom lights & AHU locked on past hours
+    "L5":  (35.5, 0.92),
+    "L14": (45.2, 0.89),
+    "L30": (18.1, 0.95),
+}
+
 HEATWAVE_PROFILES = {
     "LG":  (16.0, 0.90),
     "GF":  (54.0, 0.91),
@@ -240,7 +256,13 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
             # Select profile set
             if current_mode in ("l14_anomaly", "cool_night_gap"):
                 profiles = ANOMALY_PROFILES
-                mode_label = "[ALERT - L14 ANOMALY FAULT (AHU damper bypass)]"
+                mode_label = "[ALERT - L14 HOTEL ANOMALY (AHU damper bypass)]"
+            elif current_mode in ("l8_anomaly", "office_vav_fault"):
+                profiles = OFFICE_VAV_ANOMALY_PROFILES
+                mode_label = "[ALERT - L8 OFFICE ANOMALY (VAV reheat runaway)]"
+            elif current_mode in ("l2_anomaly", "podium_lighting_fault"):
+                profiles = PODIUM_LIGHTING_ANOMALY_PROFILES
+                mode_label = "[ALERT - L2 PODIUM ANOMALY (Lighting schedule override)]"
             elif current_mode == "tropical_heatwave":
                 profiles = HEATWAVE_PROFILES
                 mode_label = "[HEATWAVE - High ambient, low PF chiller stress]"

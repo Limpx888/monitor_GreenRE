@@ -234,3 +234,25 @@ class ControlResult(BaseModel):
     latency_ms: Optional[float] = None
     message: str = ""
     dispatched_at: Optional[datetime] = None
+
+# --- Append to the bottom of schemas.py ---
+from typing import Dict, Any
+
+class AssetInfo(BaseModel):
+    equipment_id: str = Field(..., description="Unique physical equipment identifier, e.g., AHU-L14-01")
+    equipment_type: str = Field(..., description="Equipment type, e.g., AHU, Chiller, VAV")
+    floor: str = Field(..., description="Floor location")
+    zone: str = Field(..., description="Associated zone code")
+    registers: List[str] = Field(default_factory=list, description="List of key telemetry registers/points")
+
+class TelemetrySnapshot(BaseModel):
+    timestamp: datetime
+    data_quality: QualityStatus = Field(default="LIVE", description="Data quality label")
+    readings: Dict[str, float] = Field(..., description="Key-value telemetry data")
+
+class DiagnosticPayload(BaseModel):
+    anomaly_id: str
+    asset: AssetInfo
+    telemetry: TelemetrySnapshot
+    baseline_deviation_pct: float
+    environmental_context: Dict[str, float] = Field(..., description="Environmental context, such as outdoor temperature")

@@ -139,98 +139,104 @@ export default function DashboardPage() {
         action_recommendation: `Target Asset: ${targetAsset} (Floor ${dynamicFloor}). Diagnosed mechanical fault: Fresh air damper actuator stuck open. Execute OT override to reset damper to 15% night setback.`,
       });
 
-    } else if (scenario === 'tropical_heatwave') {
-      setCurrentTime('03:00');
-      setCurrentWeather({
-        temp: 30.2,
-        humidity: 68,
-        condition: 'Tropical Heatwave (High Ambient)',
-        emoji: '🌡️',
-        timestamp: '2016-07-22 03:00:00',
-        forecast: [
-          { time: '01:00', emoji: '🌡️', temp: 30.6, rainProb: 0 },
-          { time: '02:00', emoji: '🌡️', temp: 30.4, rainProb: 0 },
-          { time: '03:00', emoji: '🌡️', temp: 30.2, rainProb: 0 },
-          { time: '04:00', emoji: '🌡️', temp: 30.0, rainProb: 0 },
-          { time: '05:00', emoji: '🌡️', temp: 29.8, rainProb: 0 },
-          { time: '06:00', emoji: '☀️', temp: 30.5, rainProb: 0 },
-        ],
-      });
-      setNilmZones({
-        total: 1005,
-        hotel: 415,
-        office: 305,
-        podium: 190,
-        me: 95,
-      });
-
-      // ⚠️ Extract dynamic variables
-      const dynamicTemp = 30.2;
-      const dynamicMeasured = 415.0;
-      const dynamicDevPct = 25.8;
-
-      setComplianceGap({
-        detected: false,
-        status_code: 'WEATHER_DRIVEN_LOAD',
-        clause: 'EE-1 (Weather Compensated)',
-        clause_title: 'Weather-Driven Thermal Envelope Load',
-        attribution: 'WEATHER_DRIVEN',
-        anomaly_zone: null,
-        anomaly_floor: null,
-        measured_load: dynamicMeasured,
-        baseline_load: 330.0,
-        outdoor_temp: dynamicTemp,
-        deviation_pct: dynamicDevPct,
-        severity: 'NOMINAL_HIGH',
-        explanation: `At 03:00 AM, elevated power (${dynamicMeasured} kW) is thermally justified by extreme ${dynamicTemp}°C ambient heatwave. Chiller lift normal, zero mechanical fault.`,
-        action_recommendation: `Outdoor heatwave (${dynamicTemp}°C) verified via meteorological record. Chillers operating within thermal lift envelope. Advise optimizing BMS night economizer enthalpy limits.`,
-      });
-
-    } else if (scenario === 'daytime_nominal') {
+    } else if (scenario === 'office_vav_fault') {
       setCurrentTime('14:00');
       setCurrentWeather({
         temp: 31.8,
-        humidity: 62,
-        condition: 'Clear Sky / Peak Operation',
+        humidity: 65,
+        condition: 'Sunny (Peak Hours)',
         emoji: '☀️',
-        timestamp: '2016-03-15 14:00:00',
+        timestamp: '2016-05-12 14:00:00',
         forecast: [
-          { time: '12:00', emoji: '☀️', temp: 31.2, rainProb: 5 },
-          { time: '13:00', emoji: '☀️', temp: 31.5, rainProb: 5 },
-          { time: '14:00', emoji: '☀️', temp: 31.8, rainProb: 5 },
-          { time: '15:00', emoji: '☀️', temp: 31.6, rainProb: 5 },
-          { time: '16:00', emoji: '⛅', temp: 31.0, rainProb: 10 },
-          { time: '17:00', emoji: '⛅', temp: 30.2, rainProb: 10 },
+          { time: '12:00', emoji: '☀️', temp: 31.0, rainProb: 0 },
+          { time: '13:00', emoji: '☀️', temp: 31.5, rainProb: 0 },
+          { time: '14:00', emoji: '☀️', temp: 31.8, rainProb: 0 },
+          { time: '15:00', emoji: '☀️', temp: 31.6, rainProb: 0 },
+          { time: '16:00', emoji: '⛅', temp: 30.8, rainProb: 5 },
+          { time: '17:00', emoji: '⛅', temp: 30.0, rainProb: 5 },
         ],
       });
       setNilmZones({
-        total: 2450,
-        hotel: 350,
-        office: 850,
-        podium: 650,
+        total: 1350,
+        hotel: 410,
+        office: 590,
+        podium: 240,
         me: 110,
       });
 
-      // ⚠️ Extract dynamic variables
+      const dynamicFloor = 'L8';
       const dynamicTemp = 31.8;
-      const dynamicMeasured = 350.0;
-      const dynamicDevPct = 6.1;
+      const dynamicMeasured = 590.0;
+      const dynamicDevPct = 40.5;
+      const targetAsset = 'VAV-OFFICE-08';
 
       setComplianceGap({
-        detected: false,
-        status_code: 'COMPLIANT',
-        clause: 'EE-1',
-        clause_title: 'Energy Efficiency Standard Met',
-        attribution: 'NORMAL',
-        anomaly_zone: null,
-        anomaly_floor: null,
+        detected: true,
+        status_code: 'EQUIPMENT_MALFUNCTION_GAP',
+        clause: 'EE-2 / EQ-1',
+        clause_title: 'Zonal Temperature Control & VAV Efficiency',
+        attribution: 'EQUIPMENT_FAULT',
+        anomaly_zone: 'zone-c',
+        anomaly_floor: dynamicFloor,
+        zone_name: 'Offices (L4–L12)',
         measured_load: dynamicMeasured,
-        baseline_load: 330.0,
+        baseline_load: 420.0,
         outdoor_temp: dynamicTemp,
         deviation_pct: dynamicDevPct,
-        severity: 'NOMINAL',
-        explanation: `All 4 zones conform to GreenRE EE-1 baseline bounds under ${dynamicTemp}°C nominal afternoon business peak.`,
-        action_recommendation: 'All building zones operating in optimal energy envelope. Continuous NILM surveillance active.',
+        threshold_pct: 15.0,
+        severity: 'HIGH',
+        explanation: `Cross-modal AI diagnostic: Office Zone electrical load (+${dynamicDevPct}%) correlates with abnormal BMS telemetry on Floor ${dynamicFloor}. ${targetAsset} terminal damper stuck closed, causing simultaneous chiller overload and electric reheat runaway during business peak.`,
+        action_recommendation: `Target Asset: ${targetAsset} (Floor ${dynamicFloor}). Diagnosed mechanical fault: VAV damper stuck closed. Dispatch HVAC technician to cycle actuator and recalibrate zone thermostat.`,
+      });
+
+    } else if (scenario === 'podium_lighting_fault') {
+      setCurrentTime('22:00');
+      setCurrentWeather({
+        temp: 26.5,
+        humidity: 75,
+        condition: 'Mild Night (Post-Closure)',
+        emoji: '🌙',
+        timestamp: '2016-09-08 22:00:00',
+        forecast: [
+          { time: '20:00', emoji: '🌙', temp: 27.2, rainProb: 5 },
+          { time: '21:00', emoji: '🌙', temp: 26.8, rainProb: 5 },
+          { time: '22:00', emoji: '🌙', temp: 26.5, rainProb: 10 },
+          { time: '23:00', emoji: '🌙', temp: 26.2, rainProb: 10 },
+          { time: '00:00', emoji: '🌙', temp: 25.8, rainProb: 10 },
+          { time: '01:00', emoji: '🌙', temp: 25.5, rainProb: 10 },
+        ],
+      });
+      setNilmZones({
+        total: 1150,
+        hotel: 380,
+        office: 220,
+        podium: 450,
+        me: 100,
+      });
+
+      const dynamicFloor = 'L2';
+      const dynamicTemp = 26.5;
+      const dynamicMeasured = 450.0;
+      const dynamicDevPct = 80.0;
+      const targetAsset = 'AHU-PODIUM-02';
+
+      setComplianceGap({
+        detected: true,
+        status_code: 'OPERATIONAL_WASTE',
+        clause: 'EE-4',
+        clause_title: 'Lighting & HVAC Schedule Bypass Waste',
+        attribution: 'HUMAN_OVERRIDE',
+        anomaly_zone: 'zone-b',
+        anomaly_floor: dynamicFloor,
+        zone_name: 'Podium Commercial (GF–L3)',
+        measured_load: dynamicMeasured,
+        baseline_load: 250.0,
+        outdoor_temp: dynamicTemp,
+        deviation_pct: dynamicDevPct,
+        threshold_pct: 10.0,
+        severity: 'CRITICAL',
+        explanation: `Cross-modal AI diagnostic: Commercial Podium electrical load (+${dynamicDevPct}%) remains high after mall operating hours. Disaggregation identifies Floor ${dynamicFloor} ballroom and concourse lighting contactor manually bypassed on BMS schedule.`,
+        action_recommendation: `Target Asset: Lighting Panel L2 / ${targetAsset} (Floor ${dynamicFloor}). Diagnosed operational waste: Lighting contactor manually bypassed. Execute OT command to restore after-hours schedule.`,
       });
 
     } else if (scenario === 'nominal') {
@@ -276,8 +282,8 @@ export default function DashboardPage() {
     // Remote-control the Python simulator via the FastAPI Demo State Bus
     const modeMap = {
       cool_night_gap: 'l14_anomaly',
-      tropical_heatwave: 'tropical_heatwave',
-      daytime_nominal: 'nominal',
+      office_vav_fault: 'l8_anomaly',
+      podium_lighting_fault: 'l2_anomaly',
       nominal: 'nominal',
     };
     const targetMode = modeMap[scenario] || scenario;
@@ -854,7 +860,7 @@ export default function DashboardPage() {
 
               <button
                 type="button"
-                onClick={() => handleScenarioChange('tropical_heatwave')}
+                onClick={() => handleScenarioChange('office_vav_fault')}
                 style={{
                   padding: '6px 8px',
                   fontSize: '0.64rem',
@@ -866,19 +872,19 @@ export default function DashboardPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderColor: selectedScenario === 'tropical_heatwave' ? '#f59e0b' : '#cbd5e1',
-                  background: selectedScenario === 'tropical_heatwave' ? '#fef3c7' : '#f8fafc',
-                  color: selectedScenario === 'tropical_heatwave' ? '#92400e' : '#475569',
+                  borderColor: selectedScenario === 'office_vav_fault' ? '#f59e0b' : '#cbd5e1',
+                  background: selectedScenario === 'office_vav_fault' ? '#fef3c7' : '#f8fafc',
+                  color: selectedScenario === 'office_vav_fault' ? '#92400e' : '#475569',
                   transition: 'all 0.2s'
                 }}
               >
-                <span>☀️ 03:00 Tropical Heatwave</span>
-                <span style={{ fontSize: '0.6rem', background: '#fde68a', padding: '1px 5px', borderRadius: '4px' }}>30.2°C · Weather Lift</span>
+                <span>⚠️ 14:00 Peak VAV Reheat Anomaly</span>
+                <span style={{ fontSize: '0.6rem', background: '#fde68a', padding: '1px 5px', borderRadius: '4px' }}>31.8°C · Gap L8</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleScenarioChange('daytime_nominal')}
+                onClick={() => handleScenarioChange('podium_lighting_fault')}
                 style={{
                   padding: '6px 8px',
                   fontSize: '0.64rem',
@@ -890,14 +896,14 @@ export default function DashboardPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderColor: selectedScenario === 'daytime_nominal' ? '#0d9488' : '#cbd5e1',
-                  background: selectedScenario === 'daytime_nominal' ? '#ccfbf1' : '#f8fafc',
-                  color: selectedScenario === 'daytime_nominal' ? '#0f766e' : '#475569',
+                  borderColor: selectedScenario === 'podium_lighting_fault' ? '#a855f7' : '#cbd5e1',
+                  background: selectedScenario === 'podium_lighting_fault' ? '#f3e8ff' : '#f8fafc',
+                  color: selectedScenario === 'podium_lighting_fault' ? '#6b21a8' : '#475569',
                   transition: 'all 0.2s'
                 }}
               >
-                <span>🏢 14:00 Nominal Afternoon</span>
-                <span style={{ fontSize: '0.6rem', background: '#99f6e4', padding: '1px 5px', borderRadius: '4px' }}>31.8°C · Peak OK</span>
+                <span>🚨 22:00 Podium Lighting Override</span>
+                <span style={{ fontSize: '0.6rem', background: '#e9d5ff', padding: '1px 5px', borderRadius: '4px' }}>26.5°C · Gap L2</span>
               </button>
 
               <button
@@ -967,17 +973,17 @@ export default function DashboardPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '6px', marginTop: '4px', marginBottom: '4px' }}>
                     <span style={{ fontSize: '0.58rem', background: '#fecdd3', color: '#881337', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                      🌡️ Outdoor: {complianceGap.outdoor_temp}°C (Cool Night)
+                      🌡️ Outdoor: {complianceGap.outdoor_temp}°C ({currentWeather?.condition?.split('(')[0]?.trim() || 'Recorded'})
                     </span>
                     <span style={{ fontSize: '0.58rem', background: '#fee2e2', color: '#991b1b', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                      ⚡ Hotel Load: {complianceGap.measured_load} kW (+{complianceGap.deviation_pct}%)
+                      ⚡ {complianceGap.zone_name?.split(' ')[0] || 'Zone'} Load: {complianceGap.measured_load} kW (+{complianceGap.deviation_pct}%)
                     </span>
                   </div>
                   <div className="alert-desc" style={{ color: '#881337', marginTop: '2px', lineHeight: '1.45', fontSize: '0.68rem' }}>
                     {complianceGap.explanation}
                   </div>
                   <div style={{ color: '#9f1239', fontSize: '0.62rem', fontWeight: 800, marginTop: '6px' }}>
-                    {bmsLoading ? 'Loading BMS gateway…' : 'Click to open L14 BMS drill-down →'}
+                    {bmsLoading ? 'Loading BMS gateway…' : `Click to open ${complianceGap.anomaly_floor || 'L14'} BMS drill-down →`}
                   </div>
                 </div>
               </div>
@@ -1027,7 +1033,7 @@ export default function DashboardPage() {
               <span className="reco-tag">TEAMS APPROVAL</span>
             </div>
             <div className="reco-text" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-              <b>Target:</b> {complianceGap?.detected ? `Hyatt Hotel (${complianceGap.anomaly_floor})` : 'Whole Tower'}<br />
+              <b>Target:</b> {complianceGap?.detected ? `${complianceGap.zone_name || 'Zone'} (${complianceGap.anomaly_floor})` : 'Whole Tower'}<br />
               <b>Directive:</b> {complianceGap?.action_recommendation || 'Continuous monitoring active across sub-meters.'}<br />
               <b>Attribution:</b> <span style={{ color: complianceGap?.detected ? '#e11d48' : (complianceGap?.attribution === 'WEATHER_DRIVEN' ? '#d97706' : '#0d9488'), fontWeight: 800 }}>
                 {complianceGap?.attribution || 'NORMAL'}
@@ -1109,15 +1115,17 @@ export default function DashboardPage() {
                   No forecast data available.
                 </div>
               )}
-              <BmsTelemetryDrawer
-                isOpen={isBmsDrawerOpen}
-                data={bmsTelemetry}
-                onClose={() => setIsBmsDrawerOpen(false)}
-              />
             </div>
           </div>
         </div>
       )}
+
+      {/* BMS Telemetry & AFDD RAG Drawer */}
+      <BmsTelemetryDrawer
+        isOpen={isBmsDrawerOpen}
+        data={bmsTelemetry}
+        onClose={() => setIsBmsDrawerOpen(false)}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-"""BMS RAG & Diagnostic Reasoning Engine — v2.0.
+"""BMS RAG & Diagnostic Reasoning Engine — v3.0.
 
 Core Features:
 1. Document vectorization with Page and Source metadata retention.
@@ -8,6 +8,9 @@ Core Features:
 5. Forced Structured Output (diagnosis, severity, confidence, recommended_checks).
 6. Anti-Hallucination Safeguard.
 7. Citation Traceability & Interactive Manual QA endpoint.
+8. [NEW] Live Asset Diagnostics: Strongly-typed event-driven reasoning for production EMS.
+9. [NEW] Multi-Document Support & ChromaDB Persistence.
+10.[NEW] GreenRE Compliance Clause Cross-Validation.
 """
 import os
 import time
@@ -59,10 +62,15 @@ class LightweightTfidfEmbeddings(Embeddings):
 
 
 class LocalBmsRagMapper:
-    """RAG engine connecting LBNL engineering manuals with live BMS telemetry."""
+    """RAG engine connecting LBNL engineering manuals and GreenRE standards with live BMS telemetry."""
 
-    def __init__(self, pdf_path: str):
-        self.pdf_path = os.path.abspath(pdf_path)
+    def __init__(self, source_path: str, persist_dir: str = "./chroma_db"):
+        self.source_path = os.path.abspath(source_path)
+        if persist_dir == "./chroma_db" and not os.path.exists("./chroma_db"):
+            project_chroma = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "chroma_db"))
+            if os.path.exists(project_chroma):
+                persist_dir = project_chroma
+        self.persist_dir = os.path.abspath(persist_dir)
         self._schema_cache: Dict[str, dict] = {}
         self.vectorstore: Optional[Chroma] = None
         self._init_engine()
@@ -79,39 +87,75 @@ class LocalBmsRagMapper:
         self._build_knowledge_base()
 
     def _build_knowledge_base(self):
-        if not os.path.isfile(self.pdf_path):
-            raise FileNotFoundError(f"RAG manual not found: {self.pdf_path}")
+        # 1. 检查是否存在已持久化的向量数据库
+        if os.path.exists(self.persist_dir) and os.listdir(self.persist_dir):
+            print(f"[RAG] Loading existing Chroma database from {self.persist_dir}...")
+            self.vectorstore = Chroma(
+                persist_directory=self.persist_dir, 
+                embedding_function=self.embeddings
+            )
+            return
 
-        print(f"[RAG] Loading and parsing manual with page metadata: {self.pdf_path}")
-        raw_documents = PyPDFLoader(self.pdf_path).load()
-        if not raw_documents:
-            raise ValueError(f"RAG manual contains no readable text: {self.pdf_path}")
+        print(f"[RAG] Building new Chroma database from: {self.source_path}")
+        pdf_files = []
+        
+        # 2. 支持单文件或整个文件夹的 PDF 扫描
+        if os.path.isdir(self.source_path):
+            for root, _, files in os.walk(self.source_path):
+                for file in files:
+                    if file.lower().endswith(".pdf"):
+                        pdf_files.append(os.path.join(root, file))
+        elif os.path.isfile(self.source_path) and self.source_path.lower().endswith(".pdf"):
+            pdf_files = [self.source_path]
+        else:
+            raise FileNotFoundError(f"No valid PDF files found at {self.source_path}")
 
-        # Ensure page numbers and source filenames are cleanly standardized (1-indexed pages)
-        for doc in raw_documents:
-            doc.metadata["source"] = os.path.basename(doc.metadata.get("source", self.pdf_path))
-            raw_page = doc.metadata.get("page", 0)
-            doc.metadata["page"] = int(raw_page) + 1  # 1-indexed for human engineers
+        if not pdf_files:
+            raise ValueError(f"RAG knowledge base directory is empty: {self.source_path}")
+
+        all_raw_docs = []
+        for pdf_path in pdf_files:
+            print(f"[RAG] Parsing manual: {pdf_path}")
+            loader = PyPDFLoader(pdf_path)
+            docs = loader.load()
+            doc_name = os.path.basename(pdf_path)
+            
+            for doc in docs:
+                doc.metadata["source"] = doc_name
+                doc.metadata["page"] = int(doc.metadata.get("page", 0)) + 1
+                # 自动分配元数据类别标签
+                if "greenre" in doc_name.lower():
+                    doc.metadata["category"] = "standard"
+                else:
+                    doc.metadata["category"] = "equipment_manual"
+                    
+            all_raw_docs.extend(docs)
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=60,
         )
-        splits = splitter.split_documents(raw_documents)
-        print(f"[RAG] Vectorizing {len(splits)} chunks across {len(raw_documents)} pages into Chroma...")
+        splits = splitter.split_documents(all_raw_docs)
+        print(f"[RAG] Vectorizing {len(splits)} chunks across {len(pdf_files)} documents into Chroma...")
 
+        # 3. 生成向量并进行本地持久化
         self.vectorstore = Chroma.from_documents(
             documents=splits,
             embedding=self.embeddings,
+            persist_directory=self.persist_dir
         )
-        print("[RAG] Knowledge base built successfully with citation metadata")
+        print("[RAG] Knowledge base built and persisted successfully.")
 
-    def retrieve_context(self, query: str, k: int = 3) -> List[Dict[str, Any]]:
-        """Retrieve relevant manual chunks with verified page and source citations."""
+    def retrieve_context(self, query: str, k: int = 3, filter_dict: dict = None) -> List[Dict[str, Any]]:
+        """Retrieve relevant manual chunks with verified page, source, and optional metadata filtering."""
         if self.vectorstore is None:
             raise RuntimeError("Chroma vector store is not initialized")
 
-        retriever = self.vectorstore.as_retriever(search_kwargs={"k": k})
+        search_kwargs = {"k": k}
+        if filter_dict:
+            search_kwargs["filter"] = filter_dict
+
+        retriever = self.vectorstore.as_retriever(search_kwargs=search_kwargs)
         documents = retriever.invoke(query)
 
         results = []
@@ -119,8 +163,9 @@ class LocalBmsRagMapper:
             clean_text = doc.page_content.replace("\n", " ").strip()
             results.append({
                 "text": clean_text,
-                "source": doc.metadata.get("source", os.path.basename(self.pdf_path)),
+                "source": doc.metadata.get("source", "Unknown Source"),
                 "page": doc.metadata.get("page", 1),
+                "category": doc.metadata.get("category", "general"),
                 "excerpt": clean_text[:280] + ("..." if len(clean_text) > 280 else ""),
             })
         return results
@@ -140,7 +185,6 @@ class LocalBmsRagMapper:
         if len(headers) < 2:
             raise ValueError(f"Sensor data requires at least two columns: {headers}")
 
-        # Retrieve manual point descriptions for context
         retrieved_docs = self.retrieve_context(
             "What are the point naming conventions and variable names for damper position and fan speed?",
             k=2,
@@ -174,28 +218,108 @@ Return a valid JSON object mapping each standard point to the exact matching CSV
         )
 
         try:
-            # Clean JSON markdown if any
             clean_json = response_text.strip()
             if clean_json.startswith("```"):
                 clean_json = clean_json.split("\n", 1)[1].rsplit("```", 1)[0].strip()
             schema = json.loads(clean_json)
         except Exception as e:
             print(f"[RAG] Schema parsing failed ({e}). Response: {response_text}")
-            # Fallback heuristic
             schema = {
                 "damper_position": next((h for h in headers if "damper" in h.lower()), headers[1] if len(headers) > 1 else None),
                 "fan_speed": next((h for h in headers if "fan" in h.lower() or "rpm" in h.lower()), headers[2] if len(headers) > 2 else None),
             }
 
-        # Verify columns exist in dataframe
         if schema.get("damper_position") not in headers or schema.get("fan_speed") not in headers:
-            # Re-verify with safe match
             schema["damper_position"] = next((h for h in headers if "damper" in h.lower()), headers[1])
             schema["fan_speed"] = next((h for h in headers if "fan" in h.lower() or "rpm" in h.lower()), headers[2])
 
         self._schema_cache[csv_path] = schema
         print(f"[RAG] LLM Schema Discovery mapped {headers} -> {schema}")
         return schema
+
+
+    # -------------------------------------------------------------------------
+    # NEW PRODUCTION MILESTONE: Event-Driven Live Asset Diagnostic Engine
+    # -------------------------------------------------------------------------
+    def diagnose_live_telemetry(self, payload: Any) -> Dict[str, Any]:
+        """
+        工业级诊断接口：基于强类型数据契约进行针对性检索和诊断 (Event-Driven)
+        加入 GreenRE 规范条款绑定逻辑。
+        """
+        retrieval_query = (
+            f"{payload.asset.equipment_type} ({payload.asset.equipment_id}) "
+            f"abnormal energy consumption, troubleshooting, GreenRE EE standard maintenance procedures."
+        )
+        citations = self.retrieve_context(retrieval_query, k=4)
+        manual_context = "\n\n".join([
+            f"--- Source: {c['source']} ({c['category']}) | Page {c['page']} ---\n{c['text']}"
+            for c in citations
+        ])
+
+        system_prompt = (
+            "You are a Certified Building Energy Auditor and HVAC Diagnostic Engineer. "
+            "Analyze the provided strictly-typed JSON telemetry and manual context. "
+            "Anti-Hallucination: If data_quality is NOT 'LIVE' (e.g. STALE or ERROR), "
+            "the primary diagnosis MUST be a sensor/communication failure, not a mechanical fault."
+        )
+
+        payload_json = (
+            payload.model_dump_json(indent=2) 
+            if hasattr(payload, "model_dump_json") 
+            else json.dumps(payload.dict() if hasattr(payload, "dict") else dict(payload), indent=2)
+        )
+        prompt = f"""[LIVE ASSET TELEMETRY]
+{payload_json}
+
+[MANUAL & STANDARD GUIDELINES]
+{manual_context}
+
+[TASK]
+Diagnose the specific fault for {payload.asset.equipment_id}. 
+Identify which GreenRE Energy Efficiency (EE) or Indoor Environmental Quality (EQ) clause is breached based on the context.
+Output strict JSON:
+{{
+  "diagnosis": "<Specific fault>",
+  "greenre_clause_breach": "<e.g., EE-1 Energy Efficiency / EQ-3 Thermal Comfort or 'None if N/A'>",
+  "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "confidence": <float>,
+  "recommended_checks": ["<Check 1>", "<Check 2>"]
+}}"""
+        
+        response_text = llm_client.generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            json_mode=True,
+            temperature=0.1,
+        )
+
+        try:
+            clean_json = response_text.strip()
+            if clean_json.startswith("```"):
+                clean_json = clean_json.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            parsed = json.loads(clean_json)
+        except Exception as e:
+            print(f"[RAG] Failed to parse dynamic JSON ({e}): {response_text}")
+            parsed = {
+                "diagnosis": "Diagnostic parsing failed - Manual review required.",
+                "greenre_clause_breach": "Unknown",
+                "severity": "HIGH", 
+                "confidence": 0.0, 
+                "recommended_checks": []
+            }
+
+        provider_info = llm_client.get_active_provider_info()
+        return {
+            "target_asset": payload.asset.equipment_id,
+            "diagnosis": parsed.get("diagnosis", "Unknown Fault"),
+            "greenre_clause_breach": parsed.get("greenre_clause_breach", "None"),
+            "severity": parsed.get("severity", "MEDIUM"),
+            "confidence": float(parsed.get("confidence", 0.0)),
+            "recommended_checks": parsed.get("recommended_checks", []),
+            "citations": [{"source": c["source"], "page": c["page"], "excerpt": c["excerpt"]} for c in citations],
+            "llm_provider": provider_info["active_provider"]
+        }
+
 
     # -------------------------------------------------------------------------
     # Milestone 2: Refactoring Diagnostic Flow with LLM Dynamic Reasoning
@@ -206,15 +330,7 @@ Return a valid JSON object mapping each standard point to the exact matching CSV
         telemetry_series: List[Dict[str, Any]],
         anomaly_context: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Perform dynamic LLM diagnostic reasoning with multi-dimensional inputs.
-
-        Combines:
-        1. Telemetry time-series (damper %, fan RPM, outdoor temperature)
-        2. Anomaly context (disaggregation deviation, baseline load, cool night anomaly)
-        3. Operating manual guidelines retrieved from Chroma with page citations
-        4. Anti-hallucination safeguard
-        """
-        # Calculate summary statistics from 24h series
+        """Perform dynamic LLM diagnostic reasoning with multi-dimensional inputs."""
         damper_values = [pt.get("damper_pct", 0) for pt in telemetry_series if "damper_pct" in pt]
         fan_values = [pt.get("fan_rpm", 0) for pt in telemetry_series if "fan_rpm" in pt]
         
@@ -229,14 +345,13 @@ Return a valid JSON object mapping each standard point to the exact matching CSV
             if night_points else avg_damper
         )
 
-        # Retrieve relevant diagnostic guidelines from Chroma
         retrieval_query = (
             f"Economizer and outdoor air damper actuator stuck open fault symptoms, "
-            f"nighttime cooling energy waste, and corrective inspection procedures."
+            f"nighttime cooling energy waste, corrective inspection procedures, and GreenRE clauses."
         )
-        citations = self.retrieve_context(retrieval_query, k=3)
+        citations = self.retrieve_context(retrieval_query, k=4)
         manual_context = "\n\n".join([
-            f"--- Document Source: {c['source']} | Page {c['page']} ---\n{c['text']}"
+            f"--- Document Source: {c['source']} ({c['category']}) | Page {c['page']} ---\n{c['text']}"
             for c in citations
         ])
 
@@ -249,15 +364,22 @@ Return a valid JSON object mapping each standard point to the exact matching CSV
         )
 
         prompt = f"""[TELEMETRY AUDIT REPORT: Floor {floor.upper()}]
-- Floor Identification: {floor.upper()} ({anomaly_context.get('zone_name', 'Commercial Tower')})
-- Measured Load: {anomaly_context.get('measured_load', 'N/A')} kWh (Baseline: {anomaly_context.get('baseline_load', 'N/A')} kWh)
-- Load Deviation: +{anomaly_context.get('deviation_pct', 0):.1f}% above GreenRE EE-1 baseline
-- Ambient Weather: Outdoor Air Temp = {anomaly_context.get('outdoor_temp', 24.5)}°C (Cool Night, Overcast)
-- 24-Hour Damper Position: Average = {avg_damper:.1f}%, Nighttime Average (00:00-06:00) = {night_damper_avg:.1f}%, Min = {min_damper:.1f}%, Max = {max_damper:.1f}%
-- 24-Hour Supply Fan Speed: Average = {avg_fan:.0f} RPM
-- Anomaly Description: {anomaly_context.get('explanation', 'Significant nighttime over-consumption observed under cool ambient conditions.')}
+- Floor Identification: 
+{floor.upper()} ({anomaly_context.get('zone_name', 'Commercial Tower')})
+- Measured Load: 
+{anomaly_context.get('measured_load', 'N/A')} kWh (Baseline: {anomaly_context.get('baseline_load', 'N/A')} kWh)
+- Load Deviation: +
+{anomaly_context.get('deviation_pct', 0):.1f}% above GreenRE EE-1 baseline
+- Ambient Weather: Outdoor Air Temp = 
+{anomaly_context.get('outdoor_temp', 24.5)}°C (Cool Night, Overcast)
+- 24-Hour Damper Position: Average = 
+{avg_damper:.1f}%, Nighttime Average (00:00-06:00) = {night_damper_avg:.1f}%, Min = {min_damper:.1f}%, Max = {max_damper:.1f}%
+- 24-Hour Supply Fan Speed: Average = 
+{avg_fan:.0f} RPM
+- Anomaly Description: 
+{anomaly_context.get('explanation', 'Significant nighttime over-consumption observed under cool ambient conditions.')}
 
-[RELEVANT ENGINEERING MANUAL GUIDELINES (LBNL DATA SYNTHESIS)]:
+[RELEVANT ENGINEERING MANUAL GUIDELINES (LBNL & GreenRE)]:
 {manual_context}
 
 [TASK]:
@@ -265,6 +387,7 @@ Synthesize the sensor evidence and manual fault patterns to diagnose the mechani
 Output strict JSON with the following structure:
 {{
   "diagnosis": "<Specific fault diagnosis title>",
+  "greenre_clause_breach": "<Applicable GreenRE Clause>",
   "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
   "confidence": <float between 0.0 and 1.0>,
   "recommended_checks": [
@@ -290,6 +413,7 @@ Output strict JSON with the following structure:
             print(f"[RAG] Failed to parse diagnostic JSON ({e}): {response_text}")
             parsed = {
                 "diagnosis": "AHU Outdoor Air Damper Stuck at 100% (Continuous Fresh Air Ingress)",
+                "greenre_clause_breach": "EE-1",
                 "severity": "CRITICAL",
                 "confidence": 0.94,
                 "recommended_checks": [
@@ -302,12 +426,14 @@ Output strict JSON with the following structure:
         provider_info = llm_client.get_active_provider_info()
         return {
             "diagnosis": parsed.get("diagnosis", "AHU Damper Fault"),
+            "greenre_clause_breach": parsed.get("greenre_clause_breach", "EE-1"),
             "severity": parsed.get("severity", "CRITICAL"),
             "confidence": float(parsed.get("confidence", 0.9)),
             "recommended_checks": parsed.get("recommended_checks", []),
             "citations": [
                 {
                     "source": c["source"],
+                    "category": c.get("category", "general"),
                     "page": c["page"],
                     "excerpt": c["excerpt"],
                 }
@@ -323,9 +449,9 @@ Output strict JSON with the following structure:
     def answer_manual_query(self, question: str, floor: Optional[str] = "L14") -> Dict[str, Any]:
         """Answer engineer questions about equipment manuals with citations."""
         t0 = time.time()
-        citations = self.retrieve_context(question, k=3)
+        citations = self.retrieve_context(question, k=4)
         manual_context = "\n\n".join([
-            f"--- Source: {c['source']} | Page {c['page']} ---\n{c['text']}"
+            f"--- Source: {c['source']} ({c['category']}) | Page {c['page']} ---\n{c['text']}"
             for c in citations
         ])
 
@@ -338,10 +464,10 @@ Output strict JSON with the following structure:
         prompt = f"""Engineer Question regarding Floor {floor}:
 "{question}"
 
-Reference Information from Equipment Manuals:
+Reference Information from Equipment Manuals & Standards:
 {manual_context}
 
-Provide a direct, step-by-step technical response citing the manual source and page number:
+Provide a direct, step-by-step technical response citing the source document and page number:
 """
         answer_text = llm_client.generate(
             prompt=prompt,
@@ -355,6 +481,7 @@ Provide a direct, step-by-step technical response citing the manual source and p
             "citations": [
                 {
                     "source": c["source"],
+                    "category": c.get("category", "general"),
                     "page": c["page"],
                     "excerpt": c["excerpt"],
                 }
