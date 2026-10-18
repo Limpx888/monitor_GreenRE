@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from db_models import Alarm, AlarmSeverity, AlarmState, Floor, MeterReading, TouTariffRate, Zone
+from db_models import Alarm, AlarmSeverity, AlarmState, Floor, MeterReading, PredictiveAction, TouTariffRate, Zone
 from schemas import (
     TelemetryReading,
     ZoneConsumption,
@@ -744,3 +744,128 @@ def build_diagnostic_context(
         baseline_deviation_pct=deviation_pct,
         environmental_context={"outdoor_temp_c": outdoor_temp}
     )
+
+
+# ---------------------------------------------------------------------------
+# Weather & Environmental Predictive HVAC Rule Engine
+# ---------------------------------------------------------------------------
+
+def evaluate_predictive_weather_action(
+    db: Session,
+    current_temp: float,
+    forecast_hourly: list,
+    current_setpoint_c: float = 7.0,
+    recommended_setpoint_c: float = 9.0,
+    force_trigger: bool = False,
+) -> Optional[dict]:
+    """Predictive Chiller Supply Water Temperature Rule Engine.
+
+    Rule: If the ambient temperature is forecasted to drop by > 3°C and rain occurs
+    within the next 2 hours, proactively generate an AI recommendation action
+    (persisted to PostgreSQL) suggesting an increase in Chiller Supply Water Setpoint
+    (from 7°C to 9°C) to prevent over-cooling and save ~RM 342.50 / day.
+    """
+    if not forecast_hourly and not force_trigger:
+        return None
+
+    # Inspect the next 2 forecast hours
+    next_2h = forecast_hourly[:2] if len(forecast_hourly) >= 2 else forecast_hourly
+    if next_2h:
+        min_temp_2h = min((f.get("temp", current_temp) for f in next_2h), default=current_temp)
+        max_rain_2h = max((f.get("rainProb", 0) for f in next_2h), default=0)
+    else:
+        min_temp_2h = current_temp - 4.0 if force_trigger else current_temp
+        max_rain_2h = 90 if force_trigger else 0
+
+    temp_drop = current_temp - min_temp_2h
+
+    # Check rule trigger condition: drop > 3.0°C and rain probability >= 40%
+    is_triggered = force_trigger or (temp_drop > 3.0 and max_rain_2h >= 40.0)
+
+    if not is_triggered:
+        return None
+
+    # Check if a recent pending action already exists (within 2 hours) to avoid duplicates
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+    existing = (
+        db.query(PredictiveAction)
+        .filter(
+            PredictiveAction.status == "PENDING",
+            PredictiveAction.generated_at >= recent_cutoff,
+        )
+        .order_by(PredictiveAction.generated_at.desc())
+        .first()
+    )
+
+    if existing:
+        return {
+            "id": existing.id,
+            "trigger_rule": existing.trigger_rule,
+            "outdoor_temp_current": existing.outdoor_temp_current,
+            "outdoor_temp_forecast_2h": existing.outdoor_temp_forecast_2h,
+            "temp_drop_c": existing.temp_drop_c,
+            "rain_probability_pct": existing.rain_probability_pct,
+            "current_chiller_setpoint_c": existing.current_chiller_setpoint_c,
+            "recommended_chiller_setpoint_c": existing.recommended_chiller_setpoint_c,
+            "recommendation_text": existing.recommendation_text,
+            "expected_savings_rm": existing.expected_savings_rm,
+            "expected_kwh_saved": existing.expected_kwh_saved,
+            "status": existing.status,
+            "generated_at": existing.generated_at.isoformat() if existing.generated_at else None,
+        }
+
+    # Generate and persist new predictive action
+    recommendation_text = (
+        "Heavy rainfall predicted. The current chiller setpoint at 7°C results in "
+        "over-cooling and energy waste. It is recommended to adjust to 9°C with one click."
+    )
+
+    new_action = PredictiveAction(
+        outdoor_temp_current=round(current_temp, 1),
+        outdoor_temp_forecast_2h=round(min_temp_2h, 1),
+        temp_drop_c=round(temp_drop, 1),
+        rain_probability_pct=float(max_rain_2h),
+        current_chiller_setpoint_c=current_setpoint_c,
+        recommended_chiller_setpoint_c=recommended_setpoint_c,
+        recommendation_text=recommendation_text,
+        expected_savings_rm=342.50,
+        expected_kwh_saved=778.4,
+        status="PENDING",
+    )
+    db.add(new_action)
+
+    # Also log an operational alarm
+    alarm_desc = (
+        f"Weather Predictive Optimization: Ambient dropping {temp_drop:.1f}°C with {max_rain_2h}% rain. "
+        f"Chiller setpoint reset recommended: {current_setpoint_c}°C -> {recommended_setpoint_c}°C."
+    )
+    _raise_alarm(
+        db=db,
+        alarm_code="PREDICTIVE_CHILLER_RESET",
+        description=alarm_desc,
+        severity=AlarmSeverity.INFO,
+        floor_id=None,
+        zone_id=1,  # Zone A (M&E Plant)
+        trigger_val=min_temp_2h,
+        threshold_val=current_temp,
+        meter_type="electricity",
+    )
+
+    db.commit()
+    db.refresh(new_action)
+
+    return {
+        "id": new_action.id,
+        "trigger_rule": new_action.trigger_rule,
+        "outdoor_temp_current": new_action.outdoor_temp_current,
+        "outdoor_temp_forecast_2h": new_action.outdoor_temp_forecast_2h,
+        "temp_drop_c": new_action.temp_drop_c,
+        "rain_probability_pct": new_action.rain_probability_pct,
+        "current_chiller_setpoint_c": new_action.current_chiller_setpoint_c,
+        "recommended_chiller_setpoint_c": new_action.recommended_chiller_setpoint_c,
+        "recommendation_text": new_action.recommendation_text,
+        "expected_savings_rm": new_action.expected_savings_rm,
+        "expected_kwh_saved": new_action.expected_kwh_saved,
+        "status": new_action.status,
+        "generated_at": new_action.generated_at.isoformat() if new_action.generated_at else None,
+    }

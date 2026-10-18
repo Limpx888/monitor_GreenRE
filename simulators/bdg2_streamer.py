@@ -22,6 +22,7 @@ import asyncio
 import math
 import os
 import random
+import time
 from datetime import datetime, timedelta, timezone
 import httpx
 
@@ -30,10 +31,16 @@ DEFAULT_INGEST_URLS = [
     "http://localhost:8000/api/v1/telemetry/ingest",
 ]
 
+DEFAULT_SENSOR_INGEST_URLS = [
+    os.getenv("EMS_SENSOR_INGEST_URL", "http://localhost:5000/api/v1/telemetry/ingest_sensor"),
+    "http://localhost:8000/api/v1/telemetry/ingest_sensor",
+]
+
 DEFAULT_SCENARIO_URLS = [
     "http://localhost:5000/api/v1/demo/scenario",
     "http://localhost:8000/api/v1/demo/scenario",
 ]
+
 
 # ---------------------------------------------------------------------------
 # Physical constants (Light Exchange @ 415 V, 50 Hz, 3-phase)
@@ -176,17 +183,102 @@ def _build_reading(
 
 
 # ---------------------------------------------------------------------------
+# IoT Sensor Telemetry Generator
+# ---------------------------------------------------------------------------
+
+IEQ_FLOORS = ["LG", "GF", "L2", "L5", "L8", "L14", "L30"]
+
+def generate_iot_sensor_payload(current_mode: str = "nominal", now: datetime = None) -> list:
+    """Generate fine-grained IoT sensor telemetry for each floor.
+
+    Pushes:
+    - CO2 (ppm) for each floor (surges to ~1500 ppm on L8 during ieq_co2_spike)
+    - PM2.5 (ug/m3) for each floor
+    - Occupancy, Water Flow, and Vibration on targeted zones
+    """
+    if now is None:
+        now = datetime.now()
+    current_hour = now.hour
+    is_office_hours = 9 <= current_hour <= 18
+    timestamp_str = now.isoformat()
+    payload = []
+
+    # Floor-specific base definitions
+    floor_base_co2 = {
+        "LG": 480.0,
+        "GF": 750.0 if is_office_hours else 430.0,
+        "L2": 720.0 if is_office_hours else 420.0,
+        "L5": 680.0 if is_office_hours else 410.0,
+        "L8": 760.0 if is_office_hours else 420.0,
+        "L14": 640.0 if is_office_hours else 690.0,
+        "L30": 550.0 if is_office_hours else 430.0,
+    }
+
+    floor_base_pm25 = {
+        "LG": 18.0,
+        "GF": 16.5,
+        "L2": 14.0,
+        "L5": 11.5,
+        "L8": 12.0,
+        "L14": 9.5,
+        "L30": 8.0,
+    }
+
+    for f in IEQ_FLOORS:
+        base_co2 = floor_base_co2.get(f, 600.0)
+        base_pm25 = floor_base_pm25.get(f, 12.0)
+
+        # Scenario Modifiers
+        if current_mode == "ieq_co2_spike" and f == "L8":
+            # 2 PM high-occupancy meeting with starved 15% fresh air damper
+            co2_val = round(1500.0 + random.uniform(-25.0, 35.0), 1)
+            pm25_val = round(24.0 + random.uniform(-1.5, 2.5), 1)
+        elif current_mode in ("l8_anomaly", "office_vav_fault") and f == "L8":
+            co2_val = round(1280.0 + random.uniform(-30.0, 40.0), 1)
+            pm25_val = round(base_pm25 + random.uniform(3.0, 6.0), 1)
+        elif current_mode == "tropical_heatwave":
+            co2_val = round(base_co2 + random.uniform(-20.0, 50.0), 1)
+            pm25_val = round(base_pm25 + random.uniform(8.0, 15.0), 1)  # external haze
+        else:
+            co2_val = round(base_co2 + random.uniform(-30.0, 40.0), 1)
+            pm25_val = round(base_pm25 + random.uniform(-1.5, 2.0), 1)
+
+        payload.append({"floor_id": f, "sensor_type": "CO2", "value": co2_val, "timestamp": timestamp_str})
+        payload.append({"floor_id": f, "sensor_type": "PM2.5", "value": max(1.0, pm25_val), "timestamp": timestamp_str})
+
+    # Occupancy - L2 Ballroom
+    occupancy_value = 1.0 if (is_office_hours and random.random() > 0.3) else 0.0
+    payload.append({"floor_id": "L2", "sensor_type": "OCCUPANCY", "value": occupancy_value, "timestamp": timestamp_str})
+
+    # Water flow - L2 Podium
+    water_flow = random.uniform(5.0, 15.0)
+    if random.random() > 0.95:  # 5% probability of a leak surge
+        water_flow = random.uniform(80.0, 120.0)
+    payload.append({"floor_id": "L2", "sensor_type": "WATER_FLOW", "value": round(water_flow, 1), "timestamp": timestamp_str})
+
+    # Mechanical vibration - LG M&E Chiller
+    vibration_hz = 50.0 + math.sin(time.time() / 10.0) * 2.0 + random.uniform(-0.5, 0.5)
+    if current_mode == "tropical_heatwave":
+        vibration_hz += random.uniform(2.0, 4.0)
+    payload.append({"floor_id": "LG", "sensor_type": "VIBRATION", "value": round(vibration_hz, 2), "timestamp": timestamp_str})
+
+    return payload
+
+
+# ---------------------------------------------------------------------------
 # 24-hour warm-up
 # ---------------------------------------------------------------------------
 
 async def warmup_database(client: httpx.AsyncClient, ingest_url: str, fluctuate: bool = True):
-    """Bulk-inject 24 hours of historical data with full PQ fields."""
-    print("[WARMUP] Starting 24-hour historical data warm-up (with PQ fields)...")
+    """Bulk-inject 24 hours of historical data with full PQ fields & sensor telemetry."""
+    print("[WARMUP] Starting 24-hour historical data warm-up (with PQ & IEQ sensor fields)...")
     now = datetime.now(timezone.utc)
     warmup_payload = []
+    sensor_warmup_payload = []
 
     for i in range(24, 0, -1):
-        hist_time = (now - timedelta(hours=i)).isoformat().replace("+00:00", "Z")
+        hist_dt = now - timedelta(hours=i)
+        hist_time = hist_dt.isoformat().replace("+00:00", "Z")
         hour = (now.hour - i) % 24
         is_daytime = 8 <= hour <= 18
         office_mult = 2.2 if is_daytime else 1.0
@@ -205,6 +297,30 @@ async def warmup_database(client: httpx.AsyncClient, ingest_url: str, fluctuate:
                 _build_reading(floor_id, hist_time, kwh, nominal_pf, fluctuate)
             )
 
+        # Historical IoT sensor readings for all floors
+        for f in IEQ_FLOORS:
+            f_base_co2 = 720.0 if (is_daytime and f in ("L5", "L8", "GF", "L2")) else 420.0
+            sensor_warmup_payload.append({
+                "floor_id": f,
+                "sensor_type": "CO2",
+                "value": round(f_base_co2 + random.uniform(-30, 60), 1),
+                "timestamp": hist_time
+            })
+            sensor_warmup_payload.append({
+                "floor_id": f,
+                "sensor_type": "PM2.5",
+                "value": round(12.0 + random.uniform(-2, 4), 1),
+                "timestamp": hist_time
+            })
+
+        sensor_warmup_payload.extend([
+            {"floor_id": "L2", "sensor_type": "OCCUPANCY", "value": 1.0 if (is_daytime and random.random() > 0.4) else 0.0, "timestamp": hist_time},
+            {"floor_id": "L2", "sensor_type": "WATER_FLOW", "value": round(random.uniform(5.0, 15.0), 1), "timestamp": hist_time},
+            {"floor_id": "LG", "sensor_type": "VIBRATION", "value": round(50.0 + random.uniform(-0.6, 0.6), 2), "timestamp": hist_time},
+        ])
+
+
+    # Ingest meter readings
     try:
         response = await client.post(ingest_url, json=warmup_payload, timeout=20.0)
         if response.status_code == 200:
@@ -220,6 +336,16 @@ async def warmup_database(client: httpx.AsyncClient, ingest_url: str, fluctuate:
     except Exception as exc:
         print(f"[WARMUP - WARN] Warning: {exc}")
 
+    # Ingest sensor readings
+    sensor_url = ingest_url.replace("/telemetry/ingest", "/telemetry/ingest_sensor")
+    try:
+        s_resp = await client.post(sensor_url, json=sensor_warmup_payload, timeout=20.0)
+        if s_resp.status_code == 200:
+            s_data = s_resp.json()
+            print(f"[WARMUP - OK] IoT Sensor telemetry warm-up complete ({s_data.get('inserted_count', len(sensor_warmup_payload))} records).")
+    except Exception as exc:
+        print(f"[WARMUP - WARN] IoT sensor warm-up skipped: {exc}")
+
 
 # ---------------------------------------------------------------------------
 # Live streaming loop
@@ -231,7 +357,7 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
 
     scenario_urls = DEFAULT_SCENARIO_URLS
 
-    print("[streamer] EMS IoT Simulator v2.0 — power-quality enabled")
+    print("[streamer] EMS IoT Simulator v2.0 — power-quality & IoT sensors enabled")
     print(f"[streamer] Ingest: {active_ingest_url} | Interval: {interval}s")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -286,6 +412,9 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
             total_kwh = round(total_kwh, 1)
             total_kw = round(total_kw, 1)
 
+            # Generate fine-grained IoT sensor telemetry
+            sensor_payload = generate_iot_sensor_payload(current_mode=current_mode)
+
             # Post telemetry
             sent = False
             for u in target_urls:
@@ -304,6 +433,18 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
                         )
                         target_urls = [u]
                         sent = True
+
+                        # Post IoT sensor telemetry
+                        sensor_url = u.replace("/telemetry/ingest", "/telemetry/ingest_sensor")
+                        try:
+                            s_resp = await client.post(sensor_url, json=sensor_payload, timeout=5.0)
+                            if s_resp.status_code == 200:
+                                co2_val = next((s["value"] for s in sensor_payload if s["sensor_type"] == "CO2"), 0)
+                                vib_val = next((s["value"] for s in sensor_payload if s["sensor_type"] == "VIBRATION"), 0)
+                                print(f"  └─ [IoT Telemetry] 4 sensors ingested | CO2: {co2_val} ppm | Vib: {vib_val} Hz")
+                        except Exception as s_err:
+                            print(f"  └─ [IoT Telemetry] Notice: {s_err}")
+
                         break
                 except Exception:
                     continue
@@ -312,6 +453,7 @@ async def stream_data(url: str = None, interval: float = 5.0, fluctuate: bool = 
                 print(f"[{current_time}] Connection failed. Retrying in {interval}s...")
 
             await asyncio.sleep(interval)
+
 
 
 # ---------------------------------------------------------------------------

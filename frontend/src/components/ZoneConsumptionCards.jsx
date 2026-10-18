@@ -1,15 +1,8 @@
 ﻿import React from 'react';
+import { useNavigate } from 'react-router-dom'; // 1. Import useNavigate
 
-/**
- * ZoneConsumptionCards
- *
- * Renders the "Live Zone Consumption" list driven by the nilm-live SWR hook
- * (same single source of truth as UtilityMainMeter). Each zone shows:
- *   - Coloured dot + name
- *   - reading_kwh (instantly consistent with the progress bar above)
- *   - demand_kw and avg_power_factor when available
- */
 export default function ZoneConsumptionCards({ payload, loading, error }) {
+  const navigate = useNavigate(); // 2. Initialize navigate
   const zones = payload?.zones || [];
 
   if (error) {
@@ -37,6 +30,7 @@ export default function ZoneConsumptionCards({ payload, loading, error }) {
 
   return (
     <div className="mb-3">
+      {/* ... Retain original header ... */}
       <div className="mb-1.5 flex items-center justify-between">
         <div className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
           Live Zone Consumption
@@ -51,11 +45,14 @@ export default function ZoneConsumptionCards({ payload, loading, error }) {
           const kw = zone.demand_kw ?? zone.peak_demand_kw ?? ((zone.energy_kwh || 0) * 4);
           const pct = total > 0 ? (kw / total) * 100 : 0;
           const isLive = zone.compliance_status === 'live';
+          
           return (
             <div
               key={zone.code}
-              className="rounded-lg bg-white border border-slate-200 px-2.5 py-2 hover:shadow-sm transition-shadow"
+              onClick={() => navigate(`/zone/${zone.code || zone.id}`)} // 3. Add click navigation logic
+              className="rounded-lg bg-white border border-slate-200 px-2.5 py-2 hover:shadow-md transition-shadow cursor-pointer" // Add cursor-pointer
             >
+              {/* ... Card inner code remains as is ... */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span
@@ -75,23 +72,12 @@ export default function ZoneConsumptionCards({ payload, loading, error }) {
                   </div>
                 </div>
               </div>
-
-              {/* Proportional width bar */}
+              
               <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${pct}%`, backgroundColor: zone.color || '#94a3b8' }}
                 />
-              </div>
-
-              {/* Demand & PF metadata row */}
-              <div className="mt-1 flex gap-2 text-[9.5px] text-slate-400">
-                {zone.energy_kwh != null && (
-                  <span>{zone.energy_kwh.toFixed(1)} kWh interval</span>
-                )}
-                {zone.avg_power_factor != null && (
-                  <span>PF {zone.avg_power_factor.toFixed(2)}</span>
-                )}
               </div>
             </div>
           );

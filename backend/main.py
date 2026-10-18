@@ -217,6 +217,37 @@ TIME_MACHINE_SCENARIOS = {
         "temp_seq": [25.0, 24.8, 24.6, 25.2, 27.5, 29.8, 31.2, 31.8, 31.5, 30.8, 29.5, 28.2, 27.0, 26.5, 25.8, 25.2, 24.9, 24.7, 24.6, 24.5, 26.0, 28.5, 30.5, 31.8],
         "zone_loads": {"hotel": 410.0, "office": 480.0, "podium": 240.0, "me_plant": 110.0}
     },
+    "ieq_co2_spike": {
+        "id": "ieq_co2_spike",
+        "title": "🚨 L8 Meeting Room CO2 Surge (14:00 PM | 1,500 ppm)",
+        "timestamp": "2026-10-18 14:00:00",
+        "hour": 14,
+        "outdoor_temperature": 32.0,
+        "relative_humidity": 68.0,
+        "weather_emoji": "⚠️",
+        "weather_condition": "High Occupancy / Stale Air Event",
+        "total_power": 1280.0,
+        "power_seq": [880, 850, 830, 820, 850, 920, 1080, 1190, 1220, 1210, 1180, 1160, 1140, 1200, 1280.0, 1250, 1210, 1150, 1080, 980, 920, 890, 870, 860],
+        "temp_seq": [25.0, 24.8, 24.6, 25.2, 27.5, 29.8, 31.2, 31.8, 31.5, 30.8, 29.5, 28.2, 27.0, 26.5, 25.8, 25.2, 24.9, 24.7, 24.6, 24.5, 26.0, 28.5, 30.5, 32.0],
+        # CO2 surges to 1500ppm at the 14th hour (during a 2 PM meeting)
+        "co2_seq": [420, 410, 400, 405, 415, 450, 520, 680, 820, 890, 930, 910, 880, 1100, 1500, 1380, 1120, 950, 820, 690, 580, 510, 460, 430],
+        "pm25_seq": [8.5, 8.2, 7.9, 8.0, 8.1, 9.0, 11.2, 14.5, 16.2, 18.0, 17.5, 16.8, 15.2, 18.5, 24.0, 21.5, 18.2, 15.0, 13.2, 11.5, 10.1, 9.4, 8.9, 8.6],
+        "zone_loads": {"hotel": 410.0, "office": 520.0, "podium": 240.0, "me_plant": 110.0}
+    },
+    "rainstorm_cooling": {
+        "id": "rainstorm_cooling",
+        "title": "🌧️ Rainstorm Cooling (14:00 PM | 24°C Heavy Rain)",
+        "timestamp": "2026-10-18 14:00:00",
+        "hour": 14,
+        "outdoor_temperature": 24.0,
+        "relative_humidity": 95.0,
+        "weather_emoji": "⛈️",
+        "weather_condition": "Heavy Rainfall / Sudden Temp Drop (Predictive HVAC Alert)",
+        "total_power": 1190.0,
+        "power_seq": [920, 890, 870, 850, 920, 1050, 1180, 1260, 1290, 1250, 1220, 1190, 1150, 1080, 1190.0, 1180, 1150, 1120, 1080, 980, 920, 890, 870, 860],
+        "temp_seq": [29.5, 29.2, 29.0, 28.8, 28.5, 28.0, 27.5, 27.0, 26.5, 26.0, 25.5, 25.0, 24.5, 24.0, 24.0, 23.8, 23.5, 23.2, 23.0, 22.8, 22.5, 22.2, 22.0, 21.8],
+        "zone_loads": {"hotel": 395.0, "office": 470.0, "podium": 225.0, "me_plant": 100.0}
+    },
     "nominal": {
         "id": "nominal",
         "title": "🟢 Resume Live / Nominal (Whole Tower)",
@@ -335,8 +366,62 @@ def evaluate_weather_cross_verification(scenario_id: str, predictions: dict, out
             "action_recommendation": "Diagnosed operational error: Lighting contactor manually bypassed on Floor L2 Retail concourse. Reset BMS schedule."
         }
 
-    # Scenario 4: Nominal Operation
+    # Scenario 4: IEQ CO2 Surge / Stale Air Event (Zone C)
+    elif scenario_id == "ieq_co2_spike":
+        office_power = predictions.get('office', 520.0)
+        office_baseline = 420.0
+        deviation_pct = round(((office_power - office_baseline) / office_baseline) * 100.0, 1)
+        return {
+            "detected": True,
+            "status_code": "IEQ_CO2_VIOLATION",
+            "clause": "EQ-3 / GreenRE Non-Residential",
+            "clause_title": "Indoor Environmental Quality — Fresh Air & CO2 Ventilation",
+            "attribution": "IEQ_DEFICIT",
+            "anomaly_zone": "zone-c",
+            "anomaly_floor": "L8",
+            "zone_name": "Offices (L4–L12) - Conference Room",
+            "measured_load": office_power,
+            "baseline_load": office_baseline,
+            "outdoor_temp": outdoor_temp,
+            "deviation_pct": deviation_pct,
+            "threshold_pct": 15.0,
+            "severity": "HIGH",
+            "explanation": "At 14:00 PM (peak meeting occupancy), Floor L8 CO2 concentration surged to 1,500 ppm, exceeding the 1,000 ppm GreenRE threshold. Fixed fresh air damper (15%) is starved for the actual occupant density.",
+            "action_recommendation": "CO2 excess detected in the meeting room. Based on GreenRE IEQ standards, it is recommended to open the fresh air damper of AHU-08 from 15% to 50%."
+        }
+
+    # Scenario 5: Rainstorm Predictive Chiller Optimization
+    elif scenario_id == "rainstorm_cooling":
+        total_power = sum(predictions.values())
+        chiller_wasted_kwh = round(total_power * 0.12, 1)  # ~12% over-cooling waste
+        return {
+            "detected": True,
+            "status_code": "PREDICTIVE_CHILLER_OVERCOOLING",
+            "clause": "EE-1 / WE-3",
+            "clause_title": "Predictive HVAC Control — Weather-Driven Chiller Optimization",
+            "attribution": "WEATHER_PREDICTIVE",
+            "anomaly_zone": "zone-a",
+            "anomaly_floor": "LG",
+            "zone_name": "M&E Plant (Chiller System)",
+            "measured_load": total_power,
+            "baseline_load": total_power - chiller_wasted_kwh,
+            "outdoor_temp": outdoor_temp,
+            "deviation_pct": round((chiller_wasted_kwh / (total_power - chiller_wasted_kwh)) * 100.0, 1),
+            "threshold_pct": 5.0,
+            "severity": "MEDIUM",
+            "current_chiller_setpoint_c": 7.0,
+            "recommended_chiller_setpoint_c": 9.0,
+            "expected_savings_rm": 342.50,
+            "expected_kwh_saved": 778.4,
+            "rain_probability_pct": 95.0,
+            "temp_drop_c": 7.0,
+            "explanation": f"Heavy rainfall predicted. Outdoor temperature has dropped to {outdoor_temp}°C (↓7°C from morning peak). Current chiller supply setpoint at 7°C is over-cooling relative to the ambient load — the building is doing free cooling work that the wet-bulb cooling tower can absorb.",
+            "action_recommendation": "Heavy rainfall predicted. The current chiller setpoint at 7°C results in over-cooling and energy waste. It is recommended to adjust to 9°C with one click."
+        }
+
+    # Scenario 6: Nominal Operation
     else:
+
         return {
             "detected": False,
             "status_code": "COMPLIANT",
@@ -510,8 +595,55 @@ class RagQueryRequest(BaseModel):
 def get_bms_telemetry(
     floor: str = Query(..., min_length=1, description="Building floor, for example L14"),
     timestamp: str = Query("2016-03-15T03:00:00"),
+    scenario: Optional[str] = Query(None, description="Scenario ID, e.g. ieq_co2_spike"),
     db: Session = Depends(get_db)
 ):
+    f_upper = floor.upper()
+    active_scenario = scenario or CURRENT_STATE.get("scenario_id", "")
+
+    # ── RAG Linkage for IEQ CO2 Spike Scenario ─────────────────────────────
+    if active_scenario == "ieq_co2_spike" or (f_upper == "L8" and active_scenario == "ieq_co2_spike"):
+        hours = [f"{h:02d}:00" for h in range(24)]
+        co2_seq = TIME_MACHINE_SCENARIOS.get("ieq_co2_spike", {}).get("co2_seq", [420] * 24)
+        telemetry_series = [
+            {
+                "time": h,
+                "damper_pct": 15 if int(h[:2]) < 14 else 50,
+                "fan_rpm": 1100 + (int(h[:2]) % 5) * 20,
+                "co2_ppm": co2_seq[int(h[:2])],
+                "pm25": round(12.0 + (int(h[:2]) % 4) * 2.1, 1),
+            }
+            for h in hours
+        ]
+        equipment_breakdown = [
+            {"name": "AHU-08 Ventilation & Fresh Air Intake", "value": 52},
+            {"name": "VAV Terminal Reheat & Distribution", "value": 26},
+            {"name": "Conference Room Lighting & AV", "value": 14},
+            {"name": "Receptacle & Office Workstations", "value": 8},
+        ]
+        return {
+            "floor": floor.upper(),
+            "target_asset": "AHU-08-FreshAir",
+            "status": "Fault Detected",
+            "audit_timestamp": timestamp,
+            "ai_diagnosis": "CO2 excess detected in the meeting room. Based on GreenRE IEQ standards, it is recommended to open the fresh air damper of AHU-08 from 15% to 50%.",
+            "severity": "HIGH",
+            "confidence": 0.98,
+            "recommended_checks": [
+                "Verify AHU-08 fresh air damper actuator feedback (current position: 15% restricted)",
+                "Inspect L8 Conference Room CO2 sensor calibration",
+                "Execute BMS DCV override: ramp fresh air damper to 50% for GreenRE EQ-3 compliance",
+            ],
+            "citations": [
+                "GreenRE Indoor Environmental Quality Standard EQ-3 (Ventilation & CO2 < 1000ppm)",
+                "ASHRAE 62.1 Demand Controlled Ventilation Requirements",
+            ],
+            "llm_provider": "gemini-2.0-flash / rag-mapper",
+            "data_quality_context": "LIVE",
+            "telemetry_series": telemetry_series,
+            "equipment_breakdown": equipment_breakdown,
+        }
+
     if rag_mapper is None:
         import time
         for _ in range(30):
@@ -524,8 +656,8 @@ def get_bms_telemetry(
             status_code=503, 
             detail="BMS RAG engine is initializing. Please retry in a few seconds."
         )
-        
-    f_upper = floor.upper()
+
+
     if f_upper in ["L14", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L23", "L24", "L25", "L26", "L27", "L28"]:
         zone_code = "zone-d"
     elif f_upper in ["L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11", "L12", "L13"]:
@@ -538,6 +670,7 @@ def get_bms_telemetry(
         zone_code = "zone-e"
     else:
         zone_code = "zone-d" if f_upper == "L14" else "zone-c"
+
 
     try:
         # 1. Assemble real-time diagnostic context with asset topology

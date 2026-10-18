@@ -99,6 +99,8 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
     }, [data.telemetry_series, data.floor]);
 
     // Current instant values for KPI badges
+    const hasCo2 = telemetrySeries.some(pt => pt.co2_ppm !== undefined);
+    const currentCo2 = hasCo2 ? (telemetrySeries[14]?.co2_ppm || telemetrySeries[telemetrySeries.length - 1]?.co2_ppm || 1500) : null;
     const currentDamper = telemetrySeries[3]?.damper_pct ?? 90;
     const currentFan = telemetrySeries[3]?.fan_rpm ?? 1456;
 
@@ -233,22 +235,45 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
 
                 {/* Instant Sensor KPI Badges */}
                 <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div className="bg-red-50/80 border border-red-200 rounded p-2">
-                        <div className="text-[10px] text-red-700 font-semibold flex items-center justify-between">
-                            <span>Damper Actuator</span>
-                            <span className="bg-red-200 text-red-900 px-1 rounded text-[9px] font-bold">STUCK</span>
-                        </div>
-                        <div className="text-base font-extrabold text-red-900 mt-0.5">{currentDamper}%</div>
-                        <div className="text-[9px] text-red-600 mt-0.5 font-medium">Target: 15% (Night Setback)</div>
-                    </div>
-                    <div className="bg-blue-50/80 border border-blue-200 rounded p-2">
-                        <div className="text-[10px] text-blue-700 font-semibold flex items-center justify-between">
-                            <span>Supply Fan Speed</span>
-                            <span className="bg-blue-200 text-blue-900 px-1 rounded text-[9px] font-bold">HIGH</span>
-                        </div>
-                        <div className="text-base font-extrabold text-blue-900 mt-0.5">{currentFan} <span className="text-[10px] font-normal">RPM</span></div>
-                        <div className="text-[9px] text-blue-600 mt-0.5 font-medium">Nominal: 850 RPM</div>
-                    </div>
+                    {hasCo2 ? (
+                        <>
+                            <div className="bg-red-50/80 border border-red-200 rounded p-2">
+                                <div className="text-[10px] text-red-700 font-semibold flex items-center justify-between">
+                                    <span>Meeting CO₂</span>
+                                    <span className="bg-red-200 text-red-900 px-1 rounded text-[9px] font-bold">EXCEEDED</span>
+                                </div>
+                                <div className="text-base font-extrabold text-red-900 mt-0.5">{currentCo2} <span className="text-[10px] font-normal">ppm</span></div>
+                                <div className="text-[9px] text-red-600 mt-0.5 font-medium">GreenRE Limit: 1,000 ppm</div>
+                            </div>
+                            <div className="bg-amber-50/80 border border-amber-200 rounded p-2">
+                                <div className="text-[10px] text-amber-700 font-semibold flex items-center justify-between">
+                                    <span>Fresh Air Damper</span>
+                                    <span className="bg-amber-200 text-amber-900 px-1 rounded text-[9px] font-bold">RESTRICTED</span>
+                                </div>
+                                <div className="text-base font-extrabold text-amber-900 mt-0.5">15%</div>
+                                <div className="text-[9px] text-emerald-700 mt-0.5 font-semibold">Action: Open to 50%</div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-red-50/80 border border-red-200 rounded p-2">
+                                <div className="text-[10px] text-red-700 font-semibold flex items-center justify-between">
+                                    <span>Damper Actuator</span>
+                                    <span className="bg-red-200 text-red-900 px-1 rounded text-[9px] font-bold">STUCK</span>
+                                </div>
+                                <div className="text-base font-extrabold text-red-900 mt-0.5">{currentDamper}%</div>
+                                <div className="text-[9px] text-red-600 mt-0.5 font-medium">Target: 15% (Night Setback)</div>
+                            </div>
+                            <div className="bg-blue-50/80 border border-blue-200 rounded p-2">
+                                <div className="text-[10px] text-blue-700 font-semibold flex items-center justify-between">
+                                    <span>Supply Fan Speed</span>
+                                    <span className="bg-blue-200 text-blue-900 px-1 rounded text-[9px] font-bold">HIGH</span>
+                                </div>
+                                <div className="text-base font-extrabold text-blue-900 mt-0.5">{currentFan} <span className="text-[10px] font-normal">RPM</span></div>
+                                <div className="text-[9px] text-blue-600 mt-0.5 font-medium">Nominal: 850 RPM</div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* 24-Hour Dual-Axis Line Chart */}

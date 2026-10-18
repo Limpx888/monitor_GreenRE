@@ -256,3 +256,27 @@ class DiagnosticPayload(BaseModel):
     telemetry: TelemetrySnapshot
     baseline_deviation_pct: float
     environmental_context: Dict[str, float] = Field(..., description="Environmental context, such as outdoor temperature")
+
+
+# ---------------------------------------------------------------------------
+# Sensor Telemetry Schemas
+# ---------------------------------------------------------------------------
+
+class SensorPayload(BaseModel):
+    floor_id: str = Field(..., description="Floor or plant identifier, e.g. 'L8', 'L2', 'L14', 'LG', 'M&E'")
+    sensor_type: str = Field(..., description="Sensor type: CO2, OCCUPANCY, WATER_FLOW, VIBRATION")
+    value: float = Field(..., description="Numerical sensor telemetry reading")
+    status: Optional[str] = Field("NORMAL", description="Status flag: NORMAL, WARNING, ERROR")
+    timestamp: Optional[datetime] = Field(None, description="Optional timestamp; defaults to now")
+
+
+class SensorTelemetryRead(BaseModel):
+    id: int
+    timestamp: datetime
+    floor_id: str
+    sensor_type: str
+    value: float
+    status: str
+
+    class Config:
+        from_attributes = True

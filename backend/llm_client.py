@@ -14,11 +14,17 @@ import json
 import re
 from typing import Optional, Dict, Any, List
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 
 class LLMClient:
     def __init__(self):
         self.provider = os.getenv("LLM_PROVIDER", "").lower()
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
         self.ollama_model = os.getenv("OLLAMA_MODEL", os.getenv("LLM_MODEL", "llama3"))
         
@@ -26,25 +32,38 @@ class LLMClient:
         self.openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.openai_model = os.getenv("OPENAI_MODEL", os.getenv("LLM_MODEL", "gpt-4o-mini"))
         
-        self.timeout = float(os.getenv("LLM_TIMEOUT", "12.0"))
+        self.timeout = float(os.getenv("LLM_TIMEOUT", "15.0"))
 
     def get_active_provider_info(self) -> Dict[str, Any]:
         """Return status and configuration of available LLM providers."""
-        has_openai = bool(self.openai_api_key)
-        ollama_reachable = self._check_ollama_reachable()
+        provider = (os.getenv("LLM_PROVIDER") or self.provider or "").lower()
+        gemini_key = os.getenv("GEMINI_API_KEY") or self.gemini_api_key
+        openai_key = os.getenv("OPENAI_API_KEY") or self.openai_api_key
+        has_gemini = bool(gemini_key)
+        has_openai = bool(openai_key)
+        
+        ollama_reachable = False
+        if provider == "ollama" or (not has_gemini and not has_openai):
+            ollama_reachable = self._check_ollama_reachable()
         
         active = "fallback_local"
-        if self.provider == "openai" and has_openai:
+        if provider == "gemini" and has_gemini:
+            active = "gemini"
+        elif provider == "openai" and has_openai:
             active = "openai"
-        elif self.provider == "ollama" and ollama_reachable:
+        elif provider == "ollama" and ollama_reachable:
             active = "ollama"
-        elif ollama_reachable:
-            active = "ollama"
+        elif has_gemini:
+            active = "gemini"
         elif has_openai:
             active = "openai"
+        elif ollama_reachable:
+            active = "ollama"
 
         return {
             "active_provider": active,
+            "gemini_configured": has_gemini,
+            "gemini_model": os.getenv("GEMINI_MODEL") or self.gemini_model,
             "ollama_available": ollama_reachable,
             "ollama_model": self.ollama_model,
             "openai_configured": has_openai,
@@ -70,6 +89,13 @@ class LLMClient:
         info = self.get_active_provider_info()
         provider = info["active_provider"]
 
+        if provider == "gemini":
+            try:
+                return self._call_gemini(prompt, system_prompt, json_mode, temperature)
+            except Exception as e:
+                print(f"[LLM] Gemini call failed ({e}); falling back to local synthesizer")
+                return self._local_fallback_generate(prompt, system_prompt, json_mode)
+
         if provider == "ollama":
             try:
                 return self._call_ollama(prompt, system_prompt, json_mode, temperature)
@@ -85,6 +111,41 @@ class LLMClient:
                 return self._local_fallback_generate(prompt, system_prompt, json_mode)
 
         return self._local_fallback_generate(prompt, system_prompt, json_mode)
+
+    def _call_gemini(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        json_mode: bool,
+        temperature: float,
+    ) -> str:
+        key = os.getenv("GEMINI_API_KEY") or self.gemini_api_key
+        model = os.getenv("GEMINI_MODEL") or self.gemini_model or "gemini-3.8-flash"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+        payload: Dict[str, Any] = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": temperature,
+            },
+        }
+        if system_prompt:
+            payload["systemInstruction"] = {
+                "parts": [{"text": system_prompt}]
+            }
+        if json_mode:
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+
+        with httpx.Client(timeout=self.timeout) as client:
+            res = client.post(url, json=payload)
+            res.raise_for_status()
+            data = res.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text_parts = [p.get("text", "") for p in parts if "text" in p]
+                if text_parts:
+                    return "\n".join(text_parts).strip()
+            return ""
 
     def _call_ollama(
         self,
