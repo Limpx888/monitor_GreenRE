@@ -31,6 +31,12 @@ class LLMClient:
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
         self.openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.openai_model = os.getenv("OPENAI_MODEL", os.getenv("LLM_MODEL", "gpt-4o-mini"))
+
+        # Azure OpenAI Configuration
+        self.azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
+        self.azure_key = os.getenv("AZURE_OPENAI_KEY", "")
+        self.azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+        self.azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
         
         self.timeout = float(os.getenv("LLM_TIMEOUT", "15.0"))
 
@@ -39,20 +45,27 @@ class LLMClient:
         provider = (os.getenv("LLM_PROVIDER") or self.provider or "").lower()
         gemini_key = os.getenv("GEMINI_API_KEY") or self.gemini_api_key
         openai_key = os.getenv("OPENAI_API_KEY") or self.openai_api_key
+        azure_key = os.getenv("AZURE_OPENAI_KEY") or self.azure_key
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or self.azure_endpoint
         has_gemini = bool(gemini_key)
         has_openai = bool(openai_key)
+        has_azure = bool(azure_key and azure_endpoint)
         
         ollama_reachable = False
-        if provider == "ollama" or (not has_gemini and not has_openai):
+        if provider == "ollama" or (not has_azure and not has_gemini and not has_openai):
             ollama_reachable = self._check_ollama_reachable()
         
         active = "fallback_local"
-        if provider == "gemini" and has_gemini:
+        if (provider in ["azure", "azure_openai"]) and has_azure:
+            active = "azure"
+        elif provider == "gemini" and has_gemini:
             active = "gemini"
         elif provider == "openai" and has_openai:
             active = "openai"
         elif provider == "ollama" and ollama_reachable:
             active = "ollama"
+        elif has_azure:
+            active = "azure"
         elif has_gemini:
             active = "gemini"
         elif has_openai:
@@ -62,6 +75,9 @@ class LLMClient:
 
         return {
             "active_provider": active,
+            "azure_configured": has_azure,
+            "azure_endpoint": azure_endpoint,
+            "azure_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT") or self.azure_deployment,
             "gemini_configured": has_gemini,
             "gemini_model": os.getenv("GEMINI_MODEL") or self.gemini_model,
             "ollama_available": ollama_reachable,
@@ -89,6 +105,15 @@ class LLMClient:
         info = self.get_active_provider_info()
         provider = info["active_provider"]
 
+        if provider == "azure":
+            try:
+                return self._call_azure(prompt, system_prompt, json_mode, temperature)
+            except Exception as e:
+                print(f"[LLM] Azure OpenAI call failed ({e}); checking fallback")
+                if info.get("gemini_configured"):
+                    return self._call_gemini(prompt, system_prompt, json_mode, temperature)
+                return self._local_fallback_generate(prompt, system_prompt, json_mode)
+
         if provider == "gemini":
             try:
                 return self._call_gemini(prompt, system_prompt, json_mode, temperature)
@@ -111,6 +136,54 @@ class LLMClient:
                 return self._local_fallback_generate(prompt, system_prompt, json_mode)
 
         return self._local_fallback_generate(prompt, system_prompt, json_mode)
+
+    def _call_azure(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        json_mode: bool,
+        temperature: float,
+    ) -> str:
+        endpoint = (os.getenv("AZURE_OPENAI_ENDPOINT") or self.azure_endpoint).rstrip("/")
+        key = os.getenv("AZURE_OPENAI_KEY") or self.azure_key
+        deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT") or self.azure_deployment
+        api_ver = os.getenv("AZURE_OPENAI_API_VERSION") or self.azure_api_version
+
+        # AI Foundry /v1 endpoints accept /chat/completions directly (no api-version needed).
+        # Legacy openai.azure.com endpoints require the deployment URL with api-version.
+        is_foundry = "/v1" in endpoint or "services.ai.azure.com" in endpoint
+        if is_foundry:
+            # Ensure base ends at /v1, then append /chat/completions
+            base = endpoint
+            if base.endswith("/chat/completions"):
+                url = base
+            else:
+                url = f"{base}/chat/completions"
+        else:
+            url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_ver}"
+
+        headers = {
+            "api-key": key,
+            "Content-Type": "application/json"
+        }
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload: Dict[str, Any] = {
+            "model": deployment,
+            "messages": messages,
+            "temperature": temperature
+        }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+
+        with httpx.Client(timeout=self.timeout) as client:
+            res = client.post(url, headers=headers, json=payload)
+            res.raise_for_status()
+            data = res.json()
+            return data["choices"][0]["message"]["content"].strip()
 
     def _call_gemini(
         self,

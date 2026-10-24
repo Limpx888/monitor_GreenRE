@@ -1,0 +1,51 @@
+{
+  "experiment_id": "SUST-EXP-2026-001",
+  "run_timestamp_utc": "2026-10-24T05:40:30.203163+00:00",
+  "window_hours": 720.0,
+  "hvac": {
+    "energy_before_kwh": 390240.0,
+    "energy_after_kwh": 284618.24,
+    "kwh_saved": 105621.76,
+    "pct_saved": 27.07,
+    "cost_before_myr": 157110.62,
+    "cost_after_myr": 114587.31,
+    "cost_saved_myr": 42523.32,
+    "co2e_before_kg": 228290.4,
+    "co2e_after_kg": 166501.67,
+    "co2e_saved_kg": 61788.73
+  },
+  "water": {
+    "litres_leaked_before": 2412.0,
+    "litres_leaked_after": 54.0,
+    "litres_saved": 2358.0,
+    "cost_saved_myr": 3.65
+  },
+  "audit": {
+    "hours_before": 22.0,
+    "hours_after": 1.5,
+    "hours_saved": 20.5,
+    "cost_saved_myr": 1537.5
+  },
+  "total_co2e_saved_kg": 61788.73,
+  "total_energy_saved_kwh": 105621.76,
+  "total_water_saved_litres": 2358.0,
+  "total_cost_saved_myr": 44064.47,
+  "greenre_eei_before": 256.64,
+  "greenre_eei_after": 187.18,
+  "greenre_eei_improvement_pct": 27.07,
+  "is_simulated": true,
+  "methodology_notes": [
+    "HVAC baseline: ASHRAE 90.1-2022, tropical mixed-use profile (26 W/m2)",
+    "Occupancy setback savings: 18.3% per ASHRAE 90.1 section 6.4",
+    "Chiller COP gain: +1 deg-C supply-air setpoint lift (3.40 to 3.85)",
+    "Lighting savings: 21% PIR-based dimming on unoccupied floors",
+    "Grid emission factor: 0.585 kg CO2e/kWh (Malaysia Peninsular 2023)",
+    "Water leak rate: 18 L/min (SPAN 2022 NRW benchmark)",
+    "MTTD before: 134 min (2h 14min, historical FM log average)",
+    "MTTD after: 3 min (EcoPulse EMS automatic interlock)",
+    "Audit hours before: 22h/month (FM survey across 3 comparable buildings)",
+    "Audit hours after: 1.5h/month (automated PDF endpoint + sign-off)",
+    "All parameters are deterministic -- identical results every run",
+    "Building: The Light City Penang, Tower A, 18500 m2 GFA, 22 floors"
+  ]
+}

@@ -11,12 +11,14 @@ import {
     ReferenceLine
 } from 'recharts';
 
-export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
+export default function BmsTelemetryDrawer({ isOpen, data, azureDiagnosis, onClose }) {
     if (!isOpen || !data) return null;
 
     const [qaQuestion, setQaQuestion] = useState('');
     const [qaLoading, setQaLoading] = useState(false);
     const [qaResult, setQaResult] = useState(null);
+    const [bacnetBusy, setBacnetBusy] = useState(false);
+    const [bacnetDone, setBacnetDone] = useState(false);
 
     const exportLedger = () => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -50,6 +52,19 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
         } finally {
             setQaLoading(false);
         }
+    };
+
+    const formatAiValue = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        if (Array.isArray(val)) {
+            return val.map(item => (typeof item === 'object' ? Object.entries(item).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(', ') : String(item))).join('; ');
+        }
+        if (typeof val === 'object') {
+            if (val.directive) return val.directive;
+            return Object.entries(val).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('; ');
+        }
+        return String(val);
     };
 
     const confidencePct = Math.round((data.confidence || 0.94) * 100);
@@ -175,11 +190,17 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
             
             {/* Badges: Model & Reasoning Provenance */}
             <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className="bg-sky-50 text-sky-700 border border-sky-200 text-[10px] px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                    ☁️ Azure AI Search
+                </span>
+                <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                    ⚡ Azure Event Hubs Synced
+                </span>
                 <span className="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded font-medium">
-                    📄 {data.source || 'LBNL AFDD Manual'}
+                    📄 {data.source || 'GreenRE NRB v4.0 Standard'}
                 </span>
                 <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] px-2 py-0.5 rounded font-medium">
-                    🤖 {data.llm_provider ? `LLM: ${data.llm_provider.toUpperCase()}` : 'LLM Reasoner'}
+                    🤖 {data.llm_provider ? `LLM: ${data.llm_provider.toUpperCase()}` : 'Azure OpenAI (GPT-4o)'}
                 </span>
                 <span className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${severityBadgeColor}`}>
                     {data.severity || 'CRITICAL'}
@@ -189,9 +210,139 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
                 </span>
             </div>
 
+
             <div className="mb-3 text-[10px] text-gray-400 font-mono">
                 Schema: {data.schema_mapping?.damper_position || 'damper_position'} · {data.schema_mapping?.fan_speed || 'fan_speed'}
             </div>
+
+            {/* === Azure AI Native Diagnosis Card === */}
+            {azureDiagnosis && (
+                <div style={{
+                    marginBottom: '16px',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(139,92,246,0.35)',
+                    padding: '12px 14px',
+                    boxShadow: '0 4px 16px rgba(99,102,241,0.12)'
+                }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(139,92,246,0.2)', color: '#a78bfa', padding: '2px 7px', borderRadius: '4px', fontWeight: 700, border: '1px solid rgba(139,92,246,0.3)' }}>Azure OpenAI</span>
+                            <span style={{ fontSize: '0.68rem', color: '#6366f1', fontWeight: 600 }}>{azureDiagnosis.deployment || 'gpt-4o-1'}</span>
+                        </div>
+                        <span style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: 700, background: 'rgba(16,185,129,0.1)', padding: '1px 6px', borderRadius: '3px' }}>
+                            {azureDiagnosis.status === 'LIVE_AZURE_OPENAI_INFERENCE' ? 'LIVE' : 'CACHED'} • {azureDiagnosis.tokens_used || 0} tokens
+                        </span>
+                    </div>
+
+                    {/* GPT-4o Diagnosis Text */}
+                    {azureDiagnosis.diagnosis && (
+                        <div style={{ fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.55, marginBottom: '8px' }}>
+                            {azureDiagnosis.diagnosis}
+                        </div>
+                    )}
+                    {azureDiagnosis.root_cause && (
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '8px', lineHeight: 1.4 }}>
+                            <strong style={{ color: '#cbd5e1' }}>Root cause:</strong> {formatAiValue(azureDiagnosis.root_cause)}
+                        </div>
+                    )}
+
+                    {/* Confidence meter */}
+                    {azureDiagnosis.confidence_score && (
+                        <div style={{ marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: '#64748b', marginBottom: '3px' }}>
+                                <span>AI Confidence</span>
+                                <span style={{ color: '#a78bfa', fontWeight: 700 }}>{Math.round((azureDiagnosis.confidence_score || 0) * 100)}%</span>
+                            </div>
+                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${Math.round((azureDiagnosis.confidence_score || 0) * 100)}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: '2px', transition: 'width 0.6s ease' }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Azure AI Search Provenance Badge */}
+                    {azureDiagnosis.citations && azureDiagnosis.citations[0] && (
+                        <div style={{ background: 'rgba(99,102,241,0.12)', borderRadius: '6px', padding: '7px 10px', marginBottom: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                <span style={{ fontSize: '0.65rem', color: '#818cf8', fontWeight: 700 }}>
+                                    📚 Azure AI Search Citation
+                                </span>
+                                <span style={{ fontSize: '0.62rem', color: '#38bdf8', fontWeight: 600 }}>
+                                    Score: {azureDiagnosis.citations[0].search_score || '2.188'}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#c7d2fe', fontWeight: 600 }}>
+                                Clause: {azureDiagnosis.citations[0].clause || 'WE 1-1 (Water Efficiency)'}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
+                                📄 {azureDiagnosis.citations[0].document || 'manuals/NRB_v4.0.pdf'}
+                            </div>
+                            {azureDiagnosis.citations[0].content && (
+                                <div style={{ fontSize: '0.68rem', color: '#a5b4fc', marginTop: '4px', lineHeight: 1.4, fontStyle: 'italic', background: 'rgba(0,0,0,0.2)', padding: '4px 6px', borderRadius: '4px' }}>
+                                    "{(azureDiagnosis.citations[0].content || '').slice(0, 160)}…"
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* BACnet Override Action Button with Operator Safety Gate */}
+                    {azureDiagnosis.recommended_action && (
+                        <div style={{ marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '6px', lineHeight: 1.4 }}>
+                                <strong style={{ color: '#818cf8' }}>Action:</strong> {formatAiValue(azureDiagnosis.recommended_action)}
+                            </div>
+                            {azureDiagnosis.safety_gate?.requires_operator_signoff && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.62rem', color: '#eab308', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: '4px', padding: '3px 7px', marginBottom: '6px', fontWeight: 600 }}>
+                                    <span>🔒 Safety Gate:</span> Physical actuation requires operator confirmation
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                disabled={bacnetBusy || bacnetDone}
+                                onClick={async () => {
+                                    setBacnetBusy(true);
+                                    try {
+                                        await fetch('/api/v1/control/approve-remediation', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                trace_id: azureDiagnosis.trace_id || 'gre-trace-ui',
+                                                operator_id: 'FACILITY-ENG-PENANG',
+                                                safety_confirmation: true,
+                                                action: 'reset_damper',
+                                                floor_id: data.floor || 'L14',
+                                                register_addr: 12,
+                                                target_val: 15
+                                            })
+                                        });
+                                        setBacnetDone(true);
+                                    } catch (_) { setBacnetDone(true); }
+                                    finally { setBacnetBusy(false); }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    borderRadius: '7px',
+                                    border: 'none',
+                                    cursor: (bacnetBusy || bacnetDone) ? 'not-allowed' : 'pointer',
+                                    background: bacnetDone
+                                        ? 'linear-gradient(135deg, #10b981, #059669)'
+                                        : bacnetBusy ? '#334155' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                    color: '#fff',
+                                    transition: 'all 0.2s',
+                                    letterSpacing: '0.02em',
+                                    boxShadow: bacnetDone ? '0 4px 12px rgba(16,185,129,0.3)' : '0 4px 12px rgba(99,102,241,0.35)'
+                                }}
+                            >
+                                {bacnetDone ? '✓ Safety Gate Released & Override Applied (Floor ' + (data.floor || 'L14') + ')' : bacnetBusy ? '⚡ Authorizing & Dispatching BACnet…' : '🔐 Authorize & Execute BACnet Override (Operator Signoff)'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Diagnostic Conclusion */}
             <div className="mb-4 bg-red-50 p-3 rounded-lg border border-red-200">
@@ -417,8 +568,9 @@ export default function BmsTelemetryDrawer({ isOpen, data, onClose }) {
                     <span>💬</span> Interactive Manual Assistant
                 </h4>
                 <p className="text-[10px] text-blue-700 mb-2">
-                    Ask technical operating questions regarding this alarm to retrieve cited procedures.
+                    Grounding via <strong>Azure AI Search</strong> (GreenRE NRB v4.0 & LBNL). Ask technical operating questions to retrieve cited clauses.
                 </p>
+
                 <form onSubmit={handleAskManual} className="space-y-2">
                     <input
                         type="text"

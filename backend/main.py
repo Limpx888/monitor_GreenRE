@@ -37,6 +37,7 @@ from database import Base, engine, get_db
 from ems_service import build_diagnostic_context  # [NEW] Import Context Builder
 from ems_router import router as ems_router
 from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds
+from azure_services import azure_slice
 import control_adapters  # noqa: F401 — registers ControlAuditLog in Base.metadata
 
 from app import main as waste_main
@@ -928,17 +929,103 @@ def get_live_weather():
         "forecast": forecast
     }
 
+@app.get("/api/v1/azure/status")
+def get_azure_status():
+    """Returns configuration and connection status for all 5 prioritized Azure services."""
+    return azure_slice.get_services_status()
+
+@app.get("/api/v1/azure/live-slice")
+def execute_azure_vertical_slice():
+    """
+    Judges Evidence Endpoint:
+    Executes the full 4-stage Azure-backed vertical slice end-to-end:
+    Event Hubs -> Fabric KQL -> Azure AI Search -> Azure OpenAI (with Safety Gate).
+    """
+    return azure_slice.execute_slice()
+
+@app.post("/api/v1/azure/telemetry-ingest")
+def ingest_telemetry_azure(payload: dict):
+    """Directly streams an IoT telemetry frame into Azure Event Hubs with AMQP."""
+    return azure_slice.event_hub.send_telemetry(payload)
+
 @app.post("/api/ai/recommend")
 def get_recommendation(payload: dict):
     zone_id = payload.get("zoneId", "zone-d")
+    raw_telemetry = payload.get("telemetryData", {
+        "zone_id": zone_id,
+        "floor": "L14",
+        "timestamp": CURRENT_STATE.get("timestamp"),
+        "temperature": CURRENT_STATE.get("temperature"),
+        "readings": {
+            "energy_main_kw": CURRENT_STATE.get("main_meter_kw", 284.5),
+            "water_flow_lpm": 54.2,
+            "chiller_kw_rt": 0.84,
+            "damper_position": 100.0
+        }
+    })
+    
+    # 1. Fetch relevant GreenRE Standard via Azure AI Search
+    citations = azure_slice.ai_search.search_regulations("Overnight water leak baseline WE 1-1 and AHU damper hunting", top_k=2)
+    
+    # 2. Azure OpenAI Structured Reasoning with Safety Gate
+    diagnosis_result = azure_slice.openai.diagnose_and_recommend(raw_telemetry, citations)
+    
+    rec_text = (
+        f"{diagnosis_result.get('diagnosis')} "
+        f"Remediation: {diagnosis_result.get('recommended_action', {}).get('directive', 'BACnet reset issued.')} "
+        f"Cited Standard: {diagnosis_result.get('greenre_impact', {}).get('clause_violated', 'WE 1-1')} "
+        f"(Risk: {diagnosis_result.get('greenre_impact', {}).get('risk_score_points', 4)} pts)."
+    )
+
     return {
         "status": "success",
         "zoneId": zone_id,
-        "recommendation": (
-            "Directive Dispatched: Technician deployed to Floor L14 Hyatt Hotel. "
-            "AHU motorized damper actuator reset sequence initiated via BMS BACnet protocol. "
-            "Chilled water valve travel limit set to 25% night cap."
-        ),
+        "recommendation": rec_text,
         "target_floor": "L14",
-        "action_taken": "Teams Notification Sent to Facility Operations"
+        "action_taken": "Cognitive Diagnosis Generated with BACnet Safety Interlock",
+        "azure_evidence": {
+            "ai_search_citations": citations,
+            "openai_diagnosis": diagnosis_result
+        }
     }
+
+# ---------------------------------------------------------------------------
+# Sustainability Impact Experiment endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/sustainability/experiment")
+def get_sustainability_experiment(run_fresh: bool = False):
+    """
+    Returns the reproducible controlled sustainability-impact experiment results.
+
+    By default returns the cached JSON result file (written by the experiment script).
+    Pass ?run_fresh=true to re-execute the experiment in-process and return live results.
+
+    The experiment quantifies:
+      - HVAC + lighting energy savings (kWh, MYR, kg CO2e)
+      - Water leak interlock savings (litres, MYR)
+      - GreenRE audit effort saved (hours, MYR)
+      - GreenRE EEI before / after (kWh/m²·yr)
+    Methodology: ASHRAE 90.1-2022, SPAN 2022 NRW benchmarks,
+                 Malaysia Peninsular Grid 2023 emission factor.
+    is_simulated: true — all parameters are deterministic.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    experiment_script = Path(__file__).parent / "experiments" / "run_sustainability_experiment.py"
+    results_json      = Path(__file__).parent / "experiments" / "results" / "sustainability_experiment_results.json"
+
+    if run_fresh or not results_json.exists():
+        # Load and run the experiment module dynamically
+        spec = importlib.util.spec_from_file_location("run_sustainability_experiment", experiment_script)
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        result = mod.run_experiment()
+        from dataclasses import asdict
+        return {"status": "ok", "source": "live_run", "data": asdict(result)}
+
+    # Return cached results
+    with open(results_json, "r", encoding="utf-8") as f:
+        cached = json.load(f)
+    return {"status": "ok", "source": "cached", "data": cached}

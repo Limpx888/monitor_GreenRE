@@ -1,0 +1,74 @@
+
+====================================================================
+  EcoPulse EMS -- Sustainability Impact Experiment
+  ID: SUST-EXP-2026-001   Run: 2026-10-24T05:40:30.203163+00:00
+====================================================================
+
+  SCENARIO
+  Building : The Light City Penang, Tower A
+  GFA      : 18,500 m2  |  22 floors
+  Window   : 720 h (30 days)
+
+-- 1. HVAC + LIGHTING ENERGY ------------------------------------------
+
+  Before :  390,240.0 kWh  [############################]
+  After  :  284,618.2 kWh  [####################........]
+  Saved  :  105,621.8 kWh  (27.1 %)
+  CO2e   :   61,788.7 kg saved
+  Cost   : MYR 42,523.32 saved
+
+-- 2. WATER LEAK INTERLOCK --------------------------------------------
+
+  Before :  2,412.0 L  (MTTD=134 min)
+  After  :     54.0 L  (MTTD=3 min)
+  Saved  :  2,358.0 L   Cost MYR 3.65
+
+-- 3. GreenRE AUDIT EFFORT -------------------------------------------
+
+  Manual     :  22.0 h/month
+  Automated  :   1.5 h/month  (review + sign-off only)
+  Saved      :  20.5 h/month   Cost MYR 1,537.50
+
+-- 4. GreenRE EEI ----------------------------------------------------
+
+  EEI before :  256.6 kWh/m2-yr
+  EEI after  :  187.2 kWh/m2-yr
+  Improvement:  27.07 %
+
+====================================================================
+  CONSOLIDATED IMPACT (30-day window)
+====================================================================
+
+  Energy saved    :  105,621.8 kWh
+  CO2e avoided    :   61,788.7 kg
+  Water saved     :    2,358.0 litres
+  Total cost saved: MYR 44,064.47
+  Audit hrs saved :       20.5 h
+
+  Annualised (x12):
+    Energy :  1,267,461 kWh/yr
+    CO2e   :    741,465 kg CO2e/yr
+    Water  :     28,296 L/yr
+    Cost   : MYR   528,774 /yr
+    Audit  :        246 h/yr
+
+====================================================================
+  METHODOLOGY NOTES
+====================================================================
+
+  * HVAC baseline: ASHRAE 90.1-2022, tropical mixed-use profile (26 W/m2)
+  * Occupancy setback savings: 18.3% per ASHRAE 90.1 section 6.4
+  * Chiller COP gain: +1 deg-C supply-air setpoint lift (3.40 to 3.85)
+  * Lighting savings: 21% PIR-based dimming on unoccupied floors
+  * Grid emission factor: 0.585 kg CO2e/kWh (Malaysia Peninsular 2023)
+  * Water leak rate: 18 L/min (SPAN 2022 NRW benchmark)
+  * MTTD before: 134 min (2h 14min, historical FM log average)
+  * MTTD after: 3 min (EcoPulse EMS automatic interlock)
+  * Audit hours before: 22h/month (FM survey across 3 comparable buildings)
+  * Audit hours after: 1.5h/month (automated PDF endpoint + sign-off)
+  * All parameters are deterministic -- identical results every run
+  * Building: The Light City Penang, Tower A, 18500 m2 GFA, 22 floors
+
+  is_simulated = True  (fully deterministic)
+
+====================================================================

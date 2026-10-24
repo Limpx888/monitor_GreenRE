@@ -1,11 +1,18 @@
+import os
 import time
 import json
 import random
 import requests
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-# Backend API endpoint
-API_URL = "http://localhost:5000/api/telemetry"
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "backend", ".env"))
+
+# Azure Ingestion Gateway & Express Ingestion Endpoints
+AZURE_INGEST_URL = os.getenv("AZURE_INGEST_GATEWAY_URL", "http://localhost:8000/api/v1/azure/telemetry-ingest")
+EXPRESS_API_URL = "http://localhost:5000/api/telemetry"
+EVENTHUB_CONN = os.getenv("AZURE_EVENTHUB_CONNECTION_STRING", "")
+EVENTHUB_NAME = os.getenv("AZURE_EVENTHUB_NAME", "greenre-telemetry")
 
 def generate_simulated_data(anomaly=False):
     """
@@ -90,14 +97,24 @@ def run_simulation(duration_minutes=5, interval_seconds=5):
         data = generate_simulated_data(anomaly=is_anomaly)
         
         try:
-            # Post to our Express backend (mocking IoT Hub/Fabric Eventhouse ingestion)
-            response = requests.post(API_URL, json=data, timeout=5)
-            
+            # Route to Azure Ingest Gateway (Event Hubs AMQP) and local Express
             status = "⚠️ ANOMALY (LEAK)" if is_anomaly else "✅ NORMAL"
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] {status} - Total kW: {data['readings']['energy_main_kw']} | Water: {data['readings']['water_flow_lpm']} LPM -> Server: {response.status_code}")
+            azure_receipt = None
+            try:
+                az_res = requests.post(AZURE_INGEST_URL, json=data, timeout=3)
+                if az_res.status_code == 200:
+                    azure_receipt = az_res.json()
+            except Exception:
+                pass
+
+            exp_res = requests.post(EXPRESS_API_URL, json=data, timeout=3)
+            
+            az_tag = " [☁️ Azure Event Hubs: Ingested]" if (azure_receipt and azure_receipt.get("status") == "LIVE_AZURE_INGESTED") else " [Edge Buffer]"
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {status}{az_tag} - Total kW: {data['readings']['energy_main_kw']} | Water: {data['readings']['water_flow_lpm']} LPM")
             
         except Exception as e:
             print(f"Failed to send telemetry: {e}")
+
             
         time.sleep(interval_seconds)
         

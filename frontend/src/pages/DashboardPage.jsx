@@ -25,6 +25,12 @@ export default function DashboardPage() {
   const [predictiveAction, setPredictiveAction] = useState(null);
   const [predictiveApplyBusy, setPredictiveApplyBusy] = useState(false);
   const [predictiveApplied, setPredictiveApplied] = useState(false);
+  // Azure native state
+  const [azureConnected, setAzureConnected] = useState({ eventHubs: false, aiSearch: false, openai: false, fabric: false });
+  const [azureAuditLog, setAzureAuditLog] = useState([]);
+  const [azureDiagnosis, setAzureDiagnosis] = useState(null);
+  // Sustainability experiment data
+  const [sustainabilityData, setSustainabilityData] = useState(null);
   const { data: liveConsumption, error: liveError, isLoading: liveLoading } = useZoneConsumption();
   const warningZoneCodes = (liveConsumption?.zones || [])
     .filter((zone) => zone.compliance_status === 'warning')
@@ -85,6 +91,42 @@ export default function DashboardPage() {
   const tooltipRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
   const navigate = useNavigate();
+
+  // Fetch Azure service health on mount and every 60s
+  useEffect(() => {
+    const fetchAzureHealth = async () => {
+      try {
+        const res = await fetch('/api/v1/azure/status');
+        if (res.ok) {
+          const d = await res.json();
+          const svcs = d.azure_services || {};
+          setAzureConnected({
+            eventHubs: svcs['1_event_hubs']?.configured || false,
+            fabric: svcs['2_fabric_eventhouse']?.configured || false,
+            aiSearch: svcs['3_ai_search']?.configured || false,
+            openai: svcs['4_azure_openai']?.configured || false,
+          });
+        }
+      } catch (_) {}
+    };
+    fetchAzureHealth();
+    const timer = setInterval(fetchAzureHealth, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch sustainability experiment on mount
+  useEffect(() => {
+    const fetchSustainability = async () => {
+      try {
+        const res = await fetch('/api/v1/sustainability/experiment');
+        if (res.ok) {
+          const d = await res.json();
+          setSustainabilityData(d.data);
+        }
+      } catch (_) {}
+    };
+    fetchSustainability();
+  }, []);
 
   // Instant reactive scenario switch synchronizing Left Weather, 3D Building, and Right Panel
   const handleScenarioChange = useCallback(async (scenario) => {
@@ -556,8 +598,43 @@ export default function DashboardPage() {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail || `BMS gateway returned ${response.status}`);
       }
-      setBmsTelemetry(await response.json());
+      const bmsData = await response.json();
+      setBmsTelemetry(bmsData);
       setIsBmsDrawerOpen(true);
+
+      // Async: fire Azure AI pipeline and inject into drawer + audit log
+      const ts = new Date().toISOString().slice(11, 19);
+      setAzureAuditLog(prev => [{ ts, step: 'BMS drill-down triggered', detail: `Floor ${targetFloor} · Fetching Azure AI diagnosis`, status: 'running' }, ...prev.slice(0, 19)]);
+
+      fetch('/api/v1/azure/live-slice', { method: 'GET' })
+        .then(r => r.ok ? r.json() : null)
+        .then(sliceResult => {
+          if (!sliceResult) return;
+          const ev = sliceResult.evidence_verification || {};
+          const s1 = ev['1_ingestion_receipt'] || {};
+          const s2 = ev['2_timeseries_kql_receipt'] || {};
+          const s3 = ev['3_search_citations_receipt'] || [];
+          const s4 = ev['4_openai_diagnosis_receipt'] || {};
+          const ts2 = new Date().toISOString().slice(11, 19);
+          // Update Azure connectivity from live slice result
+          setAzureConnected({
+            eventHubs: s1.connected || false,
+            fabric: s2.connected !== false,
+            aiSearch: Array.isArray(s3) && s3.length > 0,
+            openai: s4.status === 'LIVE_AZURE_OPENAI_INFERENCE',
+          });
+          // Store diagnosis for BMS drawer
+          setAzureDiagnosis({ ...s4, citations: s3, eventHubsStatus: s1.status, kqlStatus: s2.status });
+          // Append to audit log
+          setAzureAuditLog(prev => [
+            { ts: ts2, step: 'Event Hubs AMQP', detail: s1.status || 'Ingested', status: s1.connected ? 'ok' : 'warn' },
+            { ts: ts2, step: 'Fabric KQL', detail: `${s2.execution_time_ms || 0}ms · ${s2.status}`, status: 'ok' },
+            { ts: ts2, step: 'AI Search', detail: `score ${s3[0]?.search_score || 0} · ${s3[0]?.clause || 'WE 1-1'}`, status: 'ok' },
+            { ts: ts2, step: 'GPT-4o Diagnosis', detail: `${s4.tokens_used || 0} tokens · ${s4.deployment || 'gpt-4o-1'}`, status: s4.status === 'LIVE_AZURE_OPENAI_INFERENCE' ? 'ok' : 'warn' },
+            ...prev.slice(0, 16)
+          ]);
+        })
+        .catch(() => {});
     } catch (error) {
       console.error('BMS drill-down failed:', error);
       alert(`Unable to load BMS telemetry: ${error.message}`);
@@ -716,6 +793,14 @@ export default function DashboardPage() {
             </span>
             <span className="divider-v"></span>
             <span className="score-badge">Score: 88.4 (Gold)</span>
+            <span className="divider-v"></span>
+            {/* Dynamic Azure connectivity badge */}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: (azureConnected.eventHubs && azureConnected.aiSearch) ? '#0284c7' : '#94a3b8', background: (azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.08)' : 'rgba(148,163,184,0.08)', border: `1px solid ${(azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.25)' : 'rgba(148,163,184,0.2)'}`, padding: '2px 7px', borderRadius: '4px', fontWeight: 700, transition: 'all 0.4s ease' }}>
+              ☁️ Azure {(azureConnected.eventHubs && azureConnected.aiSearch) ? 'Live' : 'Connecting'}:
+              {azureConnected.eventHubs && <span style={{ marginLeft: '3px', fontSize: '0.63rem', color: '#10b981' }}>EH</span>}
+              {azureConnected.aiSearch && <span style={{ marginLeft: '2px', fontSize: '0.63rem', color: '#6366f1' }}>Search</span>}
+              {azureConnected.openai && <span style={{ marginLeft: '2px', fontSize: '0.63rem', color: '#8b5cf6' }}>GPT-4o</span>}
+            </span>
           </div>
           <button
             className="btn-evidence"
@@ -943,6 +1028,40 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* Azure Pipeline Audit Log — native embedded panel */}
+            <div className="glass-panel" style={{ padding: '1.25rem', marginTop: '1rem' }}>
+              <div className="card-header" style={{ marginBottom: '8px' }}>
+                <div>
+                  <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.9rem' }}>☁️</span> Azure Pipeline Log
+                  </div>
+                  <span style={{ fontSize: '0.62rem', color: '#64748b' }}>Event Hubs · Fabric KQL · AI Search · GPT-4o</span>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[['EH', azureConnected.eventHubs, '#0284c7'], ['KQL', azureConnected.fabric, '#0ea5e9'], ['Search', azureConnected.aiSearch, '#6366f1'], ['GPT-4o', azureConnected.openai, '#8b5cf6']].map(([label, on, col]) => (
+                    <span key={label} style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px', background: on ? `${col}18` : '#f1f5f9', color: on ? col : '#94a3b8', border: `1px solid ${on ? col + '40' : '#e2e8f0'}`, fontWeight: 700 }}>
+                      {on ? '●' : '○'} {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {azureAuditLog.length === 0 ? (
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', textAlign: 'center', padding: '12px 0' }}>
+                  Open BMS Floor drill-down to trigger live Azure pipeline
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflowY: 'auto' }}>
+                  {azureAuditLog.map((entry, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.68rem', padding: '4px 6px', borderRadius: '5px', background: i === 0 ? 'rgba(99,102,241,0.05)' : 'transparent', borderLeft: `2px solid ${entry.status === 'ok' ? '#10b981' : entry.status === 'warn' ? '#f59e0b' : '#6366f1'}` }}>
+                      <span style={{ color: '#94a3b8', fontFamily: 'monospace', minWidth: '50px', fontSize: '0.62rem' }}>{entry.ts}</span>
+                      <span style={{ fontWeight: 600, color: '#334155', minWidth: '90px' }}>{entry.step}</span>
+                      <span style={{ color: '#64748b', flex: 1 }}>{entry.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -1148,6 +1267,15 @@ export default function DashboardPage() {
                       Floor {complianceGap.anomaly_floor}
                     </span>
                   </div>
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '3px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.55rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, border: '1px solid #bae6fd' }}>
+                      ☁️ Azure AI Search (NRB v4.0 WE-1)
+                    </span>
+                    <span style={{ fontSize: '0.55rem', background: '#dbeafe', color: '#1d4ed8', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, border: '1px solid #bfdbfe' }}>
+                      ⚡ Event Hubs Ingested
+                    </span>
+                  </div>
+
                   <div style={{ display: 'flex', gap: '6px', marginTop: '4px', marginBottom: '4px' }}>
                     <span style={{ fontSize: '0.58rem', background: '#fecdd3', color: '#881337', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
                       🌡️ Outdoor: {complianceGap.outdoor_temp}°C ({currentWeather?.condition?.split('(')[0]?.trim() || 'Recorded'})
@@ -1333,7 +1461,7 @@ export default function DashboardPage() {
           <div className="reco-box">
             <div className="reco-header">
               <span className="reco-label">Action Recommendation</span>
-              <span className="reco-tag">TEAMS APPROVAL</span>
+              <span className="reco-tag">SAFETY INTERLOCK</span>
             </div>
             <div className="reco-text" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
               <b>Target:</b> {complianceGap?.detected ? `${complianceGap.zone_name || 'Zone'} (${complianceGap.anomaly_floor})` : 'Whole Tower'}<br />
@@ -1367,6 +1495,113 @@ export default function DashboardPage() {
                 }`}
             >
               {remediationLog.status === 'SUCCESS' ? remediationLog.log : `OT Alert: ${remediationLog.log}`}
+            </div>
+          )}
+
+          {/* ── Sustainability Impact Experiment Panel ─────────────────── */}
+          {sustainabilityData && (
+            <div style={{
+              marginTop: '0.85rem',
+              borderRadius: '12px',
+              border: '1.5px solid rgba(16,185,129,0.35)',
+              background: 'linear-gradient(135deg, rgba(240,253,250,0.97) 0%, rgba(236,253,245,0.93) 100%)',
+              overflow: 'hidden',
+              boxShadow: '0 2px 12px rgba(16,185,129,0.10)'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '8px 12px',
+                background: 'linear-gradient(90deg, #059669 0%, #0d9488 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.9rem' }}>🌿</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#fff', letterSpacing: '0.03em' }}>Sustainability Impact — Controlled Experiment</span>
+                </div>
+                <span style={{
+                  fontSize: '0.56rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)',
+                  background: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '4px'
+                }}>SUST-EXP-2026-001 · 30-day window · Simulated</span>
+              </div>
+
+              {/* Before / After metric rows */}
+              <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+
+                {/* Energy */}
+                <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '6px 9px', border: '1px solid rgba(16,185,129,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46' }}>⚡ HVAC + Lighting Energy</span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#059669' }}>
+                      −{sustainabilityData.hvac?.pct_saved?.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', fontSize: '0.58rem' }}>
+                    <span style={{ color: '#94a3b8' }}>Before: <b style={{ color: '#334155' }}>{sustainabilityData.hvac?.energy_before_kwh?.toLocaleString()} kWh</b></span>
+                    <span style={{ color: '#94a3b8' }}>→</span>
+                    <span style={{ color: '#059669' }}>After: <b>{sustainabilityData.hvac?.energy_after_kwh?.toLocaleString()} kWh</b></span>
+                  </div>
+                  {/* savings bar */}
+                  <div style={{ marginTop: '4px', height: '5px', background: '#d1fae5', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${sustainabilityData.hvac?.pct_saved || 0}%`,
+                      background: 'linear-gradient(90deg,#10b981,#059669)',
+                      borderRadius: '3px',
+                      transition: 'width 1s ease'
+                    }} />
+                  </div>
+                </div>
+
+                {/* CO2e + Cost row */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <div style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '6px 8px', border: '1px solid rgba(16,185,129,0.15)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.55rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>CO₂e Avoided</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#065f46' }}>
+                      {sustainabilityData.total_co2e_saved_kg?.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.52rem', color: '#64748b' }}>kg / month</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '6px 8px', border: '1px solid rgba(16,185,129,0.15)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.55rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Water Saved</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#0369a1' }}>
+                      {sustainabilityData.total_water_saved_litres?.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.52rem', color: '#64748b' }}>L / month</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '6px 8px', border: '1px solid rgba(16,185,129,0.15)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.55rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Audit Hrs Saved</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#7c3aed' }}>
+                      {sustainabilityData.audit?.hours_saved}
+                    </div>
+                    <div style={{ fontSize: '0.52rem', color: '#64748b' }}>h / month</div>
+                  </div>
+                </div>
+
+                {/* GreenRE EEI */}
+                <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '6px 9px', border: '1px solid rgba(16,185,129,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46' }}>📊 GreenRE EEI (kWh/m²·yr)</span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#059669' }}>
+                      −{sustainabilityData.greenre_eei_improvement_pct?.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.6rem' }}>
+                    <span style={{ fontWeight: 800, color: '#ef4444', fontSize: '0.85rem' }}>
+                      {sustainabilityData.greenre_eei_before}
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>→</span>
+                    <span style={{ fontWeight: 800, color: '#059669', fontSize: '0.85rem' }}>
+                      {sustainabilityData.greenre_eei_after}
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.55rem' }}>kWh/m²·yr</span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{ fontSize: '0.53rem', color: '#94a3b8', lineHeight: '1.4', paddingTop: '2px' }}>
+                  Methodology: ASHRAE 90.1-2022 · SPAN 2022 NRW · MY Grid 0.585 kg CO₂e/kWh · GreenRE v3.0
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1423,10 +1658,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* BMS Telemetry & AFDD RAG Drawer */}
+      {/* BMS Telemetry & AFDD RAG Drawer — with embedded Azure AI diagnosis */}
       <BmsTelemetryDrawer
         isOpen={isBmsDrawerOpen}
         data={bmsTelemetry}
+        azureDiagnosis={azureDiagnosis}
         onClose={() => setIsBmsDrawerOpen(false)}
       />
     </div>

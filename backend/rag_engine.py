@@ -147,7 +147,26 @@ class LocalBmsRagMapper:
         print("[RAG] Knowledge base built and persisted successfully.")
 
     def retrieve_context(self, query: str, k: int = 3, filter_dict: dict = None) -> List[Dict[str, Any]]:
-        """Retrieve relevant manual chunks with verified page, source, and optional metadata filtering."""
+        """Retrieve relevant manual chunks from Azure AI Search with local Chroma fallback."""
+        try:
+            from azure_services import azure_slice
+            if azure_slice.ai_search.is_configured():
+                az_results = azure_slice.ai_search.search_regulations(query, top_k=k)
+                if az_results:
+                    results = []
+                    for doc in az_results:
+                        content = doc.get("content", "")
+                        results.append({
+                            "text": content,
+                            "source": doc.get("document", "Azure AI Search (NRB_v4.0.pdf)"),
+                            "page": doc.get("page", 28),
+                            "category": f"Azure AI Search (Score: {doc.get('search_score', 1.0)})",
+                            "excerpt": content[:280] + ("..." if len(content) > 280 else ""),
+                        })
+                    return results
+        except Exception as e:
+            print(f"[RAG] Azure AI Search retrieval notice ({e}); falling back to ChromaDB")
+
         if self.vectorstore is None:
             raise RuntimeError("Chroma vector store is not initialized")
 
@@ -169,6 +188,7 @@ class LocalBmsRagMapper:
                 "excerpt": clean_text[:280] + ("..." if len(clean_text) > 280 else ""),
             })
         return results
+
 
     # -------------------------------------------------------------------------
     # Milestone 4: Eliminating Hardcoded Sensor Column Matching with LLM

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/eventstream/v1/schema.json",
+  "name": "es-greenre-telemetry-pipeline",
+  "description": "Continuous real-time stream routing Azure Event Hubs telemetry into Microsoft Fabric Eventhouse KQL database.",
+  "sources": [
+    {
+      "name": "AzureEventHubSource",
+      "type": "AzureEventHub",
+      "properties": {
+        "eventHubNamespace": "greenre-eh-ns",
+        "eventHubName": "greenre-telemetry",
+        "consumerGroup": "$Default",
+        "dataFormat": "Json",
+        "authenticationMode": "ConnectionString"
+      }
+    }
+  ],
+  "operators": [
+    {
+      "name": "FilterAnomalyTelemetry",
+      "type": "Filter",
+      "input": "AzureEventHubSource",
+      "properties": {
+        "expression": "water_flow_lpm > 5.0 OR ahu_damper_position_pct > 80.0"
+      }
+    }
+  ],
+  "destinations": [
+    {
+      "name": "FabricEventhouseKqlDestination",
+      "type": "Eventhouse",
+      "input": "AzureEventHubSource",
+      "properties": {
+        "workspaceId": "GreenRE-Compliance-Workspace",
+        "eventhouseId": "GreenRE_Compliance_DB",
+        "tableName": "telemetry_stream",
+        "jsonMappingName": "telemetry_stream_json_mapping",
+        "ingestionBatching": {
+          "maxLatencySeconds": 1,
+          "maxItems": 500
+        }
+      }
+    }
+  ]
+}

@@ -89,9 +89,9 @@ python action_orchestrator.py
 3. **Architecture Diagram:** 
    - Sensors -> Event Hubs -> Fabric Eventhouse.
    - Documents -> Fabric Lakehouse -> Azure AI Search.
-   - Anomalies -> Logic Apps -> Azure OpenAI -> Teams & Digital Twin UI.
+   - Anomalies -> Azure OpenAI -> Digital Twin UI & Safety Interlock.
 4. **Demo Story (The "3 AM Water Leak"):**
    - *Show Dashboard:* Water flow spikes at 3 AM. AI triggers a warning in the Digital Twin.
-   - *Show Teams:* Alert pops up, pulling context from a maintenance log ("Valve actuator sticking") and citing GreenRE criterion "WE-1".
-   - *Result:* Facility manager clicks "Approve Repair" in Teams, logging the action as evidence for the next GreenRE audit.
+   - *Show AI Drawer:* AI diagnosis card displays root cause ("Valve actuator sticking") citing GreenRE criterion "WE 1-1".
+   - *Result:* Facility engineer releases the Safety Interlock and authorizes BACnet calibration, logging the action for the GreenRE audit.
 5. **Impact & Future:** Automates evidence collection, ensures continuous sustainability, and provides explainable, actionable insights rather than just raw dashboards.
