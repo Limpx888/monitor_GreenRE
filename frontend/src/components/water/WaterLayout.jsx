@@ -13,13 +13,17 @@ export default function WaterLayout() {
   const [buildings, setBuildings] = useState([]);
   const [activeBuilding, setActiveBuilding] = useState('');
   const [loading, setLoading] = useState(true);
+  const [connError, setConnError] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const loadBuildings = () => {
+    setLoading(true);
+    setConnError(null);
     waterApi.getBuildings()
       .then((res) => {
         const list = res.buildings || [];
         setBuildings(list);
+        setConnError(null);
         if (list.length > 0) {
           const saved = localStorage.getItem('water_active_building');
           const matched = list.find((b) => b.building_name === saved);
@@ -29,9 +33,24 @@ export default function WaterLayout() {
       })
       .catch((err) => {
         console.error('Failed to load buildings:', err);
+        setConnError(err.message || 'Cannot reach water backend on port 5000');
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadBuildings();
   }, []);
+
+  // Continuous auto-retry every 3.5s while disconnected until backend is ready
+  useEffect(() => {
+    if (connError && buildings.length === 0) {
+      const interval = setInterval(() => {
+        loadBuildings();
+      }, 3500);
+      return () => clearInterval(interval);
+    }
+  }, [connError, buildings.length]);
 
   const handleBuildingChange = (name) => {
     setActiveBuilding(name);
@@ -44,15 +63,20 @@ export default function WaterLayout() {
     <div className="dashboard">
       {/* Top Bar matching Digital Twin and Waste modules */}
       <div className="top-bar">
-        <div>
-          <div className="system-title">GreenRE Smart Operation System</div>
-          <div className="system-subtitle">The Light City Penang · AI Water & Flow Management</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/gogreen-logo.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+          <div>
+            <div className="system-title">GoGreen</div>
+            <div className="system-subtitle">The Light City Penang · AI Water & Flow Management</div>
+          </div>
         </div>
         <div className="top-bar-actions">
           <div className="status-pill">
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="pulse-dot" style={{ background: '#0284c7' }}></span>
-              <span style={{ color: '#0369a1' }}>DuckDB Active (20.6M)</span>
+              <span className="pulse-dot" style={{ background: connError ? '#ef4444' : '#0284c7' }}></span>
+              <span style={{ color: connError ? '#dc2626' : '#0369a1', fontWeight: 700 }}>
+                {connError ? 'Backend Disconnected' : 'DuckDB Active (20.6M)'}
+              </span>
             </span>
             <span className="divider-v"></span>
             <span className="score-badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>
@@ -143,6 +167,55 @@ export default function WaterLayout() {
             ))}
           </div>
 
+          {/* Connection Error Banner */}
+          {connError && (
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '14px',
+                padding: '14px 20px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#991b1b', fontSize: '0.9rem' }}>
+                    Water Backend Disconnected
+                  </div>
+                  <div style={{ color: '#b91c1c', fontSize: '0.8rem', marginTop: '2px' }}>
+                    Unable to query DuckDB at <code>http://127.0.0.1:5000/api/water</code>. Ensure the backend is running via <code>npm run backend</code>.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadBuildings}
+                disabled={loading}
+                style={{
+                  background: loading ? '#9ca3af' : '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+                }}
+              >
+                {loading ? '⏳ Connecting...' : '🔄 Retry Connection'}
+              </button>
+            </div>
+          )}
+
           {/* Module Content Container */}
           <div
             className="water-theme-container"
@@ -155,7 +228,7 @@ export default function WaterLayout() {
               color: '#0f172a',
             }}
           >
-            <Outlet context={{ activeBuilding, setActiveBuilding, selectedBuildingData, buildings, loading }} />
+            <Outlet context={{ activeBuilding, setActiveBuilding, selectedBuildingData, buildings, loading, connError, retryConnect: loadBuildings }} />
           </div>
         </div>
       </div>

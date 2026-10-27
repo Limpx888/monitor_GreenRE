@@ -23,6 +23,13 @@ const ZONE_TO_FLOOR = {
   'zone-e': 'l30-31',
 };
 
+/** Management module routing — clicking these zones navigates to the module page */
+const ZONE_TO_MODULE = {
+  'zone-b': { path: '/waste', label: 'Waste Management', icon: '🗑️', color: '#f59e0b' },
+  'zone-c': { path: '/water', label: 'Water Management', icon: '💧', color: '#0ea5e9' },
+  'zone-d': { path: '/reservations', label: 'Reserve Management', icon: '🏨', color: '#8b5cf6' },
+};
+
 const ZONE_META = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 
 /** Floors grouped by zone for tooltip display */
@@ -198,7 +205,13 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
         const zoneId = findZoneId(e.object);
         if (!zoneId) return;
         onSelect(zoneId);
-        navigate(`/zone/${zoneId}`);
+        // If this zone has a management module, navigate there instead
+        const mod = ZONE_TO_MODULE[zoneId];
+        if (mod) {
+          navigate(mod.path);
+        } else {
+          navigate(`/zone/${zoneId}`);
+        }
       }}
       onPointerMove={(e) => {
         const zoneId = findZoneId(e.object);
@@ -211,14 +224,20 @@ export default function TowerModel({ selectedZone, onSelect, onHover, anomalyFlo
           // ⚠️ 使用 dynamicZoneMeta 以确保给 Dashboard 的悬浮窗发送实时能耗 (kW) 和警告状态
           const zone = dynamicZoneMeta[zoneId];
           const floors = ZONE_FLOORS[zoneId] || [];
+          const mod = ZONE_TO_MODULE[zoneId];
           onHover?.({
             zoneId,
             floorId: ZONE_TO_FLOOR[zoneId],
             name: zone?.name || '',
             floors: zone?.floors || '',
-            energy: zone?.energy || '',     // 🚀 现在这里拿到的是 Dashboard 算好的动态电量了！
-            status: zone?.status || 'ok',   // 🚀 动态的警告状态
+            energy: zone?.energy || '',
+            status: zone?.status || 'ok',
             color: zone?.color || '#94a3b8',
+            // Management module info for tooltip
+            managementModule: mod ? mod.label : null,
+            managementIcon: mod ? mod.icon : null,
+            managementColor: mod ? mod.color : null,
+            managementPath: mod ? mod.path : null,
             floorDetails: floors.map((f) => ({
               label: f.label,
               description: f.description,

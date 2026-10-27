@@ -41,27 +41,20 @@ npm run dev
 ```
 *Access the dashboard at `http://localhost:5173`.*
 
-### 2. Run the Backend API
+### 2. Run the Unified Backend API (FastAPI)
+The backend is a unified FastAPI service running on port 5000, serving Water Management (DuckDB), Energy/EMS, NILM Seq2Point, BMS RAG, and Waste AI:
 ```bash
-cd backend
-npm install
-node server.js
-```
-*The API runs on `http://localhost:5000`.*
+# Option A (from repository root):
+npm run backend
 
-The NILM and BMS drill-down gateway is a separate FastAPI service:
-```bash
+# Option B (from backend directory):
 cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --port 5000 --reload
 ```
-At startup, the service loads `LBNLDataSynthesisInventory.pdf` with
-`PyPDFLoader`, chunks it, embeds it with the local `all-MiniLM-L6-v2` model,
-and stores the chunks in an in-memory Chroma vector store. The L14 micro-audit
-endpoint is available at
-`http://localhost:8000/api/bms/telemetry?floor=L14`. It retrieves relevant
-manual context, discovers the damper and fan columns from the local sensor CSV,
-and caches the mapping for subsequent drill-downs.
+*The API runs on `http://127.0.0.1:5000` and is proxied by Vite.*
+
+At startup, the service initializes the local DuckDB water telemetry database (20.6M records), the NILM 2-channel CNN model, the Chroma vector store for RAG manual context, and the EMS SQLite database.
+
 
 ### 3. Generate Simulated Data
 ```bash

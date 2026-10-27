@@ -115,4 +115,7 @@ app.get('/api/weather', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Backend Express server running on http://localhost:${PORT}`);
+  console.log(`[Notice] For the full system (Water DuckDB telemetry, Energy/EMS, NILM, BMS RAG, Waste API), run the unified FastAPI backend:`);
+  console.log(`         python -m uvicorn main:app --port 5000 --reload`);
 });
+

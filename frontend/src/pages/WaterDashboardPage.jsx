@@ -23,7 +23,7 @@ const METER_LABELS = {
 };
 
 export default function WaterDashboardPage() {
-  const { activeBuilding, selectedBuildingData, loading: buildingsLoading } = useOutletContext();
+  const { activeBuilding, selectedBuildingData, loading: buildingsLoading, connError, retryConnect } = useOutletContext();
   const [readings, setReadings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState('daily');
@@ -31,7 +31,12 @@ export default function WaterDashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!activeBuilding) return;
+    if (!activeBuilding) {
+      if (!buildingsLoading) {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     waterApi.getConsumption(activeBuilding, { limit, granularity })
       .then((res) => {
@@ -42,7 +47,7 @@ export default function WaterDashboardPage() {
         setError(err.message || 'Unable to load water consumption data');
       })
       .finally(() => setLoading(false));
-  }, [activeBuilding, granularity, limit]);
+  }, [activeBuilding, granularity, limit, buildingsLoading]);
 
   // Pivot long-format readings into wide-format for stacked area chart
   const chartData = useMemo(() => {
@@ -254,12 +259,26 @@ export default function WaterDashboardPage() {
 
           <div style={{ height: '320px', width: '100%' }}>
             {loading ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-                Loading telemetry...
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '8px' }}>
+                <div className="waste-spinner" style={{ width: '24px', height: '24px' }} />
+                <span style={{ fontSize: '0.85rem' }}>Loading telemetry from DuckDB...</span>
+              </div>
+            ) : !activeBuilding ? (
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '10px' }}>
+                <span>{connError ? 'Backend disconnected. Please start backend on port 5000.' : 'Please select a building above.'}</span>
+                {retryConnect && (
+                  <button
+                    type="button"
+                    onClick={retryConnect}
+                    style={{ background: '#0284c7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+                  >
+                    Retry Connection
+                  </button>
+                )}
               </div>
             ) : chartData.length === 0 ? (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-                No telemetry recorded for this timeframe.
+                No telemetry recorded for this timeframe for {activeBuilding}.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">

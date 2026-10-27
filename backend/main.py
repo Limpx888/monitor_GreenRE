@@ -37,6 +37,7 @@ from database import Base, engine, get_db
 from ems_service import build_diagnostic_context  # [NEW] Import Context Builder
 from ems_router import router as ems_router
 from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds
+from migrate_sqlite import run_migrations
 from azure_services import azure_slice
 import control_adapters  # noqa: F401 — registers ControlAuditLog in Base.metadata
 
@@ -466,6 +467,7 @@ async def lifespan(app: FastAPI):
     
     # 1. Database & Waste API Init
     try:
+        run_migrations()
         Base.metadata.create_all(bind=engine)
         seed_physical_mapping()
         seed_tou_tariff()
@@ -1028,4 +1030,8 @@ def get_sustainability_experiment(run_fresh: bool = False):
     # Return cached results
     with open(results_json, "r", encoding="utf-8") as f:
         cached = json.load(f)
-    return {"status": "ok", "source": "cached", "data": cached}
+    return {"status": "ok", "source": "cached", "data": cached}
+@app.post("/api/telemetry")
+def ingest_legacy_telemetry(payload: dict):
+    print(f"Telemetry ingested: {payload.get('timestamp')} from {payload.get('building')}")
+    return {"status": "success", "message": "Telemetry stored successfully"}

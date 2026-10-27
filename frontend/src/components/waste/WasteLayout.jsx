@@ -38,9 +38,12 @@ export default function WasteLayout() {
     <div className="dashboard">
       {/* Hero Section (Top Bar) matching Dashboard */}
       <div className="top-bar">
-        <div>
-          <div className="system-title">GreenRE Smart Operation System</div>
-          <div className="system-subtitle">The Light City Penang · AI Waste Management</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/gogreen-logo.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+          <div>
+            <div className="system-title">GoGreen</div>
+            <div className="system-subtitle">The Light City Penang · AI Waste Management</div>
+          </div>
         </div>
         <div className="top-bar-actions">
           <div className="status-pill">

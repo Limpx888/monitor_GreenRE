@@ -6,6 +6,7 @@ import NilmChart from '../components/NilmChart';
 import UtilityMainMeter from '../components/UtilityMainMeter';
 import ZoneConsumptionCards from '../components/ZoneConsumptionCards';
 import BmsTelemetryDrawer from '../components/BmsTelemetryDrawer';
+import AzureEvidenceModal from '../components/AzureEvidenceModal';
 import IaqLivePanel from '../components/IaqLivePanel';
 import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
 
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [actionSuccess, setActionSuccess] = useState(false);
   const [isBmsDrawerOpen, setIsBmsDrawerOpen] = useState(false);
+  const [isAzureModalOpen, setIsAzureModalOpen] = useState(false);
   const [bmsTelemetry, setBmsTelemetry] = useState(null);
   const [bmsLoading, setBmsLoading] = useState(false);
   const [evidenceBusy, setEvidenceBusy] = useState(false);
@@ -731,11 +733,43 @@ export default function DashboardPage() {
               }, 150);
             }}
             onClick={() => {
-              if (hoveredZone.zoneId) {
+              if (hoveredZone.managementPath) {
+                navigate(hoveredZone.managementPath);
+              } else if (hoveredZone.zoneId) {
                 navigate(`/zone/${hoveredZone.zoneId}?scenario=${selectedScenario}`);
               }
             }}
           >
+            {/* Management Module Badge — prominent at top */}
+            {hoveredZone.managementModule && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 10px',
+                marginBottom: '8px',
+                borderRadius: '8px',
+                background: `linear-gradient(135deg, ${hoveredZone.managementColor}18 0%, ${hoveredZone.managementColor}30 100%)`,
+                border: `1.5px solid ${hoveredZone.managementColor}50`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>{hoveredZone.managementIcon}</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    color: hoveredZone.managementColor,
+                    letterSpacing: '0.01em',
+                  }}>
+                    {hoveredZone.managementModule}
+                  </span>
+                  <span style={{ fontSize: '0.58rem', color: '#64748b', fontWeight: 500 }}>
+                    Click to open dashboard →
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="bht-header">
               <span
                 className="bht-dot"
@@ -760,7 +794,7 @@ export default function DashboardPage() {
                 ))}
               </ul>
             )}
-            {/* Replace the Energy section of the Hover Tooltip with: */}
+            {/* Energy section */}
             <div className="bht-energy" style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
@@ -775,15 +809,23 @@ export default function DashboardPage() {
                 *No physical sub-meter installed
               </span>
             </div>
-            <div className="bht-click-hint">Click to explore →</div>
+            <div className="bht-click-hint">
+              {hoveredZone.managementModule
+                ? `${hoveredZone.managementIcon} Open ${hoveredZone.managementModule} →`
+                : 'Click to explore →'
+              }
+            </div>
           </div>
         )}
       </div>
 
       <div className="top-bar">
-        <div>
-          <div className="system-title">GreenRE Smart Operation System</div>
-          <div className="system-subtitle">The Light City Penang · Continuous Monitoring</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/gogreen-logo.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+          <div>
+            <div className="system-title">GoGreen</div>
+            <div className="system-subtitle">The Light City Penang · Continuous Monitoring</div>
+          </div>
         </div>
         <div className="top-bar-actions">
           <div className="status-pill">
@@ -794,14 +836,52 @@ export default function DashboardPage() {
             <span className="divider-v"></span>
             <span className="score-badge">Score: 88.4 (Gold)</span>
             <span className="divider-v"></span>
-            {/* Dynamic Azure connectivity badge */}
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: (azureConnected.eventHubs && azureConnected.aiSearch) ? '#0284c7' : '#94a3b8', background: (azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.08)' : 'rgba(148,163,184,0.08)', border: `1px solid ${(azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.25)' : 'rgba(148,163,184,0.2)'}`, padding: '2px 7px', borderRadius: '4px', fontWeight: 700, transition: 'all 0.4s ease' }}>
-              ☁️ Azure {(azureConnected.eventHubs && azureConnected.aiSearch) ? 'Live' : 'Connecting'}:
+            {/* Dynamic Azure connectivity badge - clickable */}
+            <span
+              onClick={() => setIsAzureModalOpen(true)}
+              title="Click to view Azure Enterprise Evidence Hub"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.68rem',
+                color: (azureConnected.eventHubs && azureConnected.aiSearch) ? '#0284c7' : '#94a3b8',
+                background: (azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.08)' : 'rgba(148,163,184,0.08)',
+                border: `1px solid ${(azureConnected.eventHubs && azureConnected.aiSearch) ? 'rgba(2,132,199,0.25)' : 'rgba(148,163,184,0.2)'}`,
+                padding: '3px 8px',
+                borderRadius: '5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              ☁️ Azure {(azureConnected.eventHubs && azureConnected.aiSearch) ? 'Live' : 'Hub'}:
               {azureConnected.eventHubs && <span style={{ marginLeft: '3px', fontSize: '0.63rem', color: '#10b981' }}>EH</span>}
               {azureConnected.aiSearch && <span style={{ marginLeft: '2px', fontSize: '0.63rem', color: '#6366f1' }}>Search</span>}
               {azureConnected.openai && <span style={{ marginLeft: '2px', fontSize: '0.63rem', color: '#8b5cf6' }}>GPT-4o</span>}
             </span>
           </div>
+          <button
+            className="btn-evidence"
+            type="button"
+            onClick={() => setIsAzureModalOpen(true)}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>☁️</span> Azure Evidence Hub
+          </button>
           <button
             className="btn-evidence"
             type="button"
@@ -816,8 +896,22 @@ export default function DashboardPage() {
                 setEvidenceBusy(false);
               }
             }}
+            style={{
+              background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: evidenceBusy ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 6px rgba(15, 118, 110, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
           >
-            {evidenceBusy ? 'Generating…' : 'Generate GreenRE Evidence'}
+            <span>📄</span> {evidenceBusy ? 'Generating PDF…' : 'Export GreenRE Audit PDF'}
           </button>
         </div>
       </div>
@@ -1664,6 +1758,12 @@ export default function DashboardPage() {
         data={bmsTelemetry}
         azureDiagnosis={azureDiagnosis}
         onClose={() => setIsBmsDrawerOpen(false)}
+      />
+
+      {/* Azure Enterprise Evidence & Regulatory Audit Modal */}
+      <AzureEvidenceModal
+        isOpen={isAzureModalOpen}
+        onClose={() => setIsAzureModalOpen(false)}
       />
     </div>
   );
