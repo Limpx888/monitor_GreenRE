@@ -58,13 +58,18 @@ export function useZoneConsumption() {
 }
 
 export async function downloadGreenReEvidence() {
-  const response = await fetch(`${EMS_API}/api/v1/reports/greenre`);
-  if (!response.ok) throw new Error(`Report generation failed (${response.status})`);
+  const response = await fetch('/api/v1/reports/greenre');
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Report generation failed (${response.status})`);
+  }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = 'greenre-evidence.pdf';
+  document.body.appendChild(anchor);
   anchor.click();
+  anchor.remove();
   URL.revokeObjectURL(url);
 }

@@ -697,6 +697,7 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
+      {/* Permanent 3D digital twin view */}
       <div className="canvas-container">
         {glFailed && (
           <CssTower selectedZone={selectedZone} onSelect={setSelectedZone} zonesData={zonesData} />
@@ -710,111 +711,45 @@ export default function DashboardPage() {
               onHover={handleBuildingHover}
               anomalyFloor={complianceGap?.detected ? complianceGap.anomaly_floor : null}
               anomalyZone={complianceGap?.detected ? complianceGap.anomaly_zone : null}
-              // ⚠️ Make sure to include this line: pass dynamic data to the 3D scene
               zonesData={zonesData}
             />
           </ErrorBoundaryCanvas>
         </div>
-        {/* Hover tooltip for 3D building zones */}
         {!glFailed && hoveredZone && (
           <div
             ref={tooltipRef}
             className="building-hover-tooltip interactive"
-            style={{
-              left: hoveredZone.x + 16,
-              top: hoveredZone.y + 16,
-            }}
+            style={{ left: hoveredZone.x + 16, top: hoveredZone.y + 16 }}
             onMouseEnter={() => {
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             }}
             onMouseLeave={() => {
-              hoverTimeoutRef.current = setTimeout(() => {
-                setHoveredZone(null);
-              }, 150);
+              hoverTimeoutRef.current = setTimeout(() => setHoveredZone(null), 150);
             }}
             onClick={() => {
-              if (hoveredZone.managementPath) {
-                navigate(hoveredZone.managementPath);
-              } else if (hoveredZone.zoneId) {
-                navigate(`/zone/${hoveredZone.zoneId}?scenario=${selectedScenario}`);
-              }
+              if (hoveredZone.managementPath) navigate(hoveredZone.managementPath);
+              else if (hoveredZone.zoneId) navigate(`/zone/${hoveredZone.zoneId}?scenario=${selectedScenario}`);
             }}
           >
-            {/* Management Module Badge — prominent at top */}
-            {hoveredZone.managementModule && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 10px',
-                marginBottom: '8px',
-                borderRadius: '8px',
-                background: `linear-gradient(135deg, ${hoveredZone.managementColor}18 0%, ${hoveredZone.managementColor}30 100%)`,
-                border: `1.5px solid ${hoveredZone.managementColor}50`,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}>
-                <span style={{ fontSize: '1.2rem' }}>{hoveredZone.managementIcon}</span>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 800,
-                    color: hoveredZone.managementColor,
-                    letterSpacing: '0.01em',
-                  }}>
-                    {hoveredZone.managementModule}
-                  </span>
-                  <span style={{ fontSize: '0.58rem', color: '#64748b', fontWeight: 500 }}>
-                    Click to open dashboard →
-                  </span>
-                </div>
-              </div>
-            )}
             <div className="bht-header">
-              <span
-                className="bht-dot"
-                style={{ background: hoveredZone.color }}
-              />
+              <span className="bht-dot" style={{ background: hoveredZone.color }} />
               <span className="bht-name">{hoveredZone.name}</span>
-              <span
-                className={`bht-badge ${hoveredZone.status === 'warn' ? 'warn' : 'ok'
-                  }`}
-              >
+              <span className={`bht-badge ${hoveredZone.status === 'warn' ? 'warn' : 'ok'}`}>
                 {hoveredZone.status === 'warn' ? 'GAP' : 'OK'}
               </span>
             </div>
             <div className="bht-floors-label">{hoveredZone.floors}</div>
             {hoveredZone.floorDetails?.length > 0 && (
               <ul className="bht-floor-list">
-                {hoveredZone.floorDetails.map((f, i) => (
-                  <li key={i}>
-                    <span className="bht-fl-code">{f.label}</span>
-                    <span className="bht-fl-desc">{f.description}</span>
+                {hoveredZone.floorDetails.map((floor, index) => (
+                  <li key={index}>
+                    <span className="bht-fl-code">{floor.label}</span>
+                    <span className="bht-fl-desc">{floor.description}</span>
                   </li>
                 ))}
               </ul>
             )}
-            {/* Energy section */}
-            <div className="bht-energy" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
-                  {hoveredZone.energy.includes('kW') ? '⚡ AI Estimated Load' : '⚡ Energy Load'}
-                </span>
-                <span style={{ fontSize: '0.6rem', color: '#8b5cf6', background: '#ede9fe', padding: '1px 4px', borderRadius: '4px', border: '1px solid #ddd6fe' }}>
-                  ✨ NILM Engine
-                </span>
-              </div>
-              <b style={{ fontSize: '1.1rem', color: '#0f172a', marginTop: '2px' }}>{hoveredZone.energy}</b>
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px' }}>
-                *No physical sub-meter installed
-              </span>
-            </div>
-            <div className="bht-click-hint">
-              {hoveredZone.managementModule
-                ? `${hoveredZone.managementIcon} Open ${hoveredZone.managementModule} →`
-                : 'Click to explore →'
-              }
-            </div>
+            <div className="bht-click-hint">Click to explore →</div>
           </div>
         )}
       </div>
@@ -828,6 +763,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="top-bar-actions">
+          {/* View mode controls removed: the 3D tower is the permanent dashboard view. */}
           <div className="status-pill">
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="pulse-dot"></span>
@@ -1227,6 +1163,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => handleScenarioChange('ieq_co2_spike')}
+
                 style={{
                   padding: '6px 8px',
                   fontSize: '0.64rem',
@@ -1239,7 +1176,7 @@ export default function DashboardPage() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   borderColor: selectedScenario === 'ieq_co2_spike' ? '#ef4444' : '#cbd5e1',
-                  background: selectedScenario === 'ieq_co2_spike' ? '#fee2e2' : '#f8fafc',
+                                                                                  background: selectedScenario === 'ieq_co2_spike' ? '#fee2e2' : '#f8fafc',
                   color: selectedScenario === 'ieq_co2_spike' ? '#b91c1c' : '#475569',
                   transition: 'all 0.2s'
                 }}
@@ -1368,6 +1305,7 @@ export default function DashboardPage() {
                     <span style={{ fontSize: '0.55rem', background: '#dbeafe', color: '#1d4ed8', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, border: '1px solid #bfdbfe' }}>
                       ⚡ Event Hubs Ingested
                     </span>
+
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', marginTop: '4px', marginBottom: '4px' }}>
@@ -1774,13 +1712,16 @@ class ErrorBoundaryCanvas extends React.Component {
     super(props);
     this.state = { hasError: false };
   }
+
   static getDerivedStateFromError() {
     return { hasError: true };
   }
-  componentDidCatch(err) {
-    console.error('3D Canvas Error:', err);
+
+  componentDidCatch(error) {
+    console.error('3D Canvas Error:', error);
     this.props.onError?.();
   }
+
   render() {
     if (this.state.hasError) return null;
     return this.props.children;

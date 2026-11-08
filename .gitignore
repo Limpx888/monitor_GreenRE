@@ -16,9 +16,19 @@ water managemet/chilledwater_cleaned.csv
 water managemet/*_cleaned*.csv
 *_cleaned*.csv
 
-# Python virtual environments
+# Python virtual environments & bytecode
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
+
+# Temporary database files & WAL journals
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Run logs & test artifacts
+runs/
+.pytest_cache/

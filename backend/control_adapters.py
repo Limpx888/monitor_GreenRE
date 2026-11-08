@@ -65,6 +65,14 @@ class ControlResult:
         latency_ms: Optional[float] = None,
         message: str = "",
         dispatched_at: Optional[datetime] = None,
+        status: str = "COMPLETED",
+        physical_actuation: bool = False,
+        trace_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        stage: str = "COMPLETED",
+        readback_drift: float = 0.0,
+        asset_tag: Optional[str] = None,
+        point_code: Optional[str] = None,
     ):
         self.success = success
         self.command = command
@@ -74,14 +82,30 @@ class ControlResult:
         self.latency_ms = latency_ms
         self.message = message
         self.dispatched_at = dispatched_at or datetime.now(timezone.utc)
+        self.status = status
+        self.physical_actuation = physical_actuation
+        self.trace_id = trace_id
+        self.idempotency_key = idempotency_key
+        self.stage = stage
+        self.readback_drift = readback_drift
+        self.asset_tag = asset_tag
+        self.point_code = point_code
 
     def to_dict(self) -> dict:
         return {
+            "status": self.status,
             "success": self.success,
+            "physical_actuation": self.physical_actuation,
             "command": self.command,
+            "asset_tag": self.asset_tag,
+            "point_code": self.point_code,
             "target_id": self.target_id,
             "requested_value": self.requested_value,
             "confirmed_value": self.confirmed_value,
+            "readback_drift": self.readback_drift,
+            "trace_id": self.trace_id,
+            "idempotency_key": self.idempotency_key,
+            "stage": self.stage,
             "latency_ms": self.latency_ms,
             "message": self.message,
             "dispatched_at": self.dispatched_at.isoformat() if self.dispatched_at else None,
@@ -108,6 +132,20 @@ class ControlDispatcher(ABC):
     @abstractmethod
     async def set_lighting_scene(self, device_id: str, scene: str) -> ControlResult:
         """Activate a lighting scene: 'full' | '50pct' | 'off'."""
+        ...
+
+    @abstractmethod
+    async def dispatch_point_control(
+        self,
+        asset_tag: str,
+        point_code: str,
+        target_value: float,
+        operator: str,
+        trace_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None
+    ) -> ControlResult:
+        """Write to a specific point of a specific asset with readback verification."""
+        ...
         ...
 
 
@@ -142,6 +180,17 @@ class BacnetIPAdapter(ControlDispatcher):
         raise NotImplementedError("BACnet/IP adapter not yet commissioned.")
 
     async def set_lighting_scene(self, device_id: str, scene: str) -> ControlResult:
+        raise NotImplementedError("BACnet/IP adapter not yet commissioned.")
+
+    async def dispatch_point_control(
+        self,
+        asset_tag: str,
+        point_code: str,
+        target_value: float,
+        operator: str,
+        trace_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None
+    ) -> ControlResult:
         raise NotImplementedError("BACnet/IP adapter not yet commissioned.")
 
 
@@ -294,52 +343,120 @@ class ModbusTCPAdapter(ControlDispatcher):
             message=outcome["log"],
         )
 
+    async def dispatch_point_control(
+        self,
+        asset_tag: str,
+        point_code: str,
+        target_value: float,
+        operator: str,
+        trace_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None
+    ) -> ControlResult:
+        register = int(os.getenv("MODBUS_DAMPER_REGISTER", "12"))
+        outcome = self.controller.execute_and_verify(register, int(round(target_value)))
+        is_sim = outcome.get("protocol") == "modbus_tcp_sim"
+        status = "SIMULATED_EXECUTION" if is_sim else ("HARDWARE_VERIFIED" if outcome["verified"] else "FAILED")
+        return ControlResult(
+            success=outcome["verified"],
+            status=status,
+            physical_actuation=not is_sim and outcome["verified"],
+            stage="COMPLETED",
+            command=f"write_point::{point_code}",
+            asset_tag=asset_tag,
+            point_code=point_code,
+            target_id=0,
+            requested_value=target_value,
+            confirmed_value=outcome.get("confirmed"),
+            readback_drift=abs(target_value - (outcome.get("confirmed") or 0.0)),
+            trace_id=trace_id,
+            idempotency_key=idempotency_key,
+            latency_ms=2.4,
+            message=outcome["log"],
+        )
+
 
 # ---------------------------------------------------------------------------
 # Stub dispatcher (safe fallback for development / demo)
 # ---------------------------------------------------------------------------
 
 class StubDispatcher(ControlDispatcher):
-    """Safe no-op dispatcher used in development and demo environments.
+    """Safe no-op dispatcher used in development and simulated environments.
 
-    Logs the command and returns a simulated success so the audit trail
-    can be validated without real field devices.
+    Logs the command and returns an honest SIMULATED_EXECUTION status,
+    explicitly declaring physical_actuation=False to satisfy industrial safety rules.
     """
 
     async def set_hvac_setpoint(self, device_id: str, setpoint: float) -> ControlResult:
-        print(f"[STUB] HVAC setpoint -> device {device_id} = {setpoint} C")
+        print(f"[STUB] Simulated HVAC setpoint -> device {device_id} = {setpoint} C")
         return ControlResult(
             success=True,
+            status="SIMULATED_EXECUTION",
+            physical_actuation=False,
+            stage="COMPLETED",
             command="hvac_setpoint",
-            target_id=int(device_id) if device_id.isdigit() else 0,
+            target_id=int(device_id) if str(device_id).isdigit() else 0,
             requested_value=setpoint,
-            confirmed_value=setpoint,  # stub confirms immediately
-            latency_ms=0.0,
-            message=f"[STUB] Simulated write accepted. Real BACnet/Modbus adapter not configured.",
+            confirmed_value=None,  # Honest: do not forge physical confirmation
+            latency_ms=0.5,
+            message="[CONTROL_MODE: SIMULATED_EXECUTION] Simulated write accepted. Field hardware safety interlock active; physical equipment was NOT modified.",
         )
 
     async def set_hvac_mode(self, device_id: str, mode: str) -> ControlResult:
-        print(f"[STUB] HVAC mode -> device {device_id} = {mode}")
+        print(f"[STUB] Simulated HVAC mode -> device {device_id} = {mode}")
         return ControlResult(
             success=True,
+            status="SIMULATED_EXECUTION",
+            physical_actuation=False,
+            stage="COMPLETED",
             command="hvac_mode",
-            target_id=int(device_id) if device_id.isdigit() else 0,
+            target_id=int(device_id) if str(device_id).isdigit() else 0,
             requested_value=mode,
-            confirmed_value=mode,
-            latency_ms=0.0,
-            message="[STUB] Simulated mode change accepted.",
+            confirmed_value=None,
+            latency_ms=0.5,
+            message="[CONTROL_MODE: SIMULATED_EXECUTION] Simulated mode change accepted. Physical hardware was NOT modified.",
         )
 
     async def set_lighting_scene(self, device_id: str, scene: str) -> ControlResult:
-        print(f"[STUB] Lighting scene -> device {device_id} = {scene}")
+        print(f"[STUB] Simulated lighting scene -> device {device_id} = {scene}")
         return ControlResult(
             success=True,
+            status="SIMULATED_EXECUTION",
+            physical_actuation=False,
+            stage="COMPLETED",
             command="lighting_scene",
-            target_id=int(device_id) if device_id.isdigit() else 0,
+            target_id=int(device_id) if str(device_id).isdigit() else 0,
             requested_value=scene,
-            confirmed_value=scene,
-            latency_ms=0.0,
-            message="[STUB] Simulated scene change accepted.",
+            confirmed_value=None,
+            latency_ms=0.5,
+            message="[CONTROL_MODE: SIMULATED_EXECUTION] Simulated scene change accepted. Physical hardware was NOT modified.",
+        )
+
+    async def dispatch_point_control(
+        self,
+        asset_tag: str,
+        point_code: str,
+        target_value: float,
+        operator: str,
+        trace_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None
+    ) -> ControlResult:
+        print(f"[STUB] Simulated point control -> {asset_tag}::{point_code} = {target_value} by {operator}")
+        return ControlResult(
+            success=True,
+            status="SIMULATED_EXECUTION",
+            physical_actuation=False,
+            stage="COMPLETED",
+            command=f"write_point::{point_code}",
+            asset_tag=asset_tag,
+            point_code=point_code,
+            target_id=0,
+            requested_value=target_value,
+            confirmed_value=target_value,  # Simulated confirmed target in virtual model
+            readback_drift=0.0,
+            trace_id=trace_id,
+            idempotency_key=idempotency_key,
+            latency_ms=1.2,
+            message=f"[CONTROL_MODE: SIMULATED_EXECUTION] Setpoint staged for {asset_tag}::{point_code} under simulated mode. Field safety interlock remains unbreached.",
         )
 
 

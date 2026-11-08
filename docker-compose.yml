@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: greenre-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: greenre_ems
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d greenre_ems"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: greenre-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/greenre_ems
+      DEMO_MODE: "false"
+      CONTROL_MODE: "simulated"
+      AUTO_START_SIMULATOR: "false"
+      JWT_SECRET: "enterprise-secret-key-greenre-2026"
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:5000"
+    ports:
+      - "5000:5000"
+
+volumes:
+  timescale_data:
+

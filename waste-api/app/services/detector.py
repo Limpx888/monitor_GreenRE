@@ -1,6 +1,7 @@
 """
 YOLO model wrapper for waste detection.
-Loads the model once at startup and provides inference.
+Loads the model once at startup — downloads from Azure Blob Storage
+on first run, then reuses the local cache.
 """
 
 import logging
@@ -17,14 +18,60 @@ _model = None
 _model_names = {}
 
 
+def _download_model_from_azure(local_path: Path) -> None:
+    """Download the YOLO weights file from Azure Blob Storage."""
+    from app.config import settings
+
+    conn_str = settings.azure_storage_connection_string
+    container = settings.azure_storage_models_container
+    blob_name = settings.waste_model_blob
+
+    if not conn_str:
+        raise EnvironmentError(
+            "AZURE_STORAGE_CONNECTION_STRING is not set. "
+            "Cannot download model from Azure Blob Storage."
+        )
+
+    logger.info(
+        f"Downloading model from Azure Blob Storage: "
+        f"container={container!r}, blob={blob_name!r} → {local_path}"
+    )
+    try:
+        from azure.storage.blob import BlobServiceClient
+
+        client = BlobServiceClient.from_connection_string(conn_str)
+        blob_client = client.get_blob_client(container=container, blob=blob_name)
+
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(blob_client.download_blob().readall())
+
+        size_mb = local_path.stat().st_size / (1024 * 1024)
+        logger.info(f"✅ Model downloaded successfully ({size_mb:.1f} MB)")
+    except Exception as e:
+        # Clean up partial download
+        if local_path.exists():
+            local_path.unlink()
+        logger.error(f"Failed to download model from Azure: {e}")
+        raise
+
+
 def load_model(model_path: str):
-    """Load YOLO model at startup. Called once from main.py."""
+    """Load YOLO model at startup. Called once from main.py.
+
+    If the weights file does not exist locally it is automatically
+    downloaded from Azure Blob Storage (container/blob configured via
+    AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_MODELS_CONTAINER,
+    and WASTE_MODEL_BLOB environment variables).
+    """
     global _model, _model_names
 
     resolved = Path(model_path).resolve()
+
+    # ── Auto-download from Azure if local file is missing ──
     if not resolved.exists():
-        logger.error(f"Model file not found: {resolved}")
-        raise FileNotFoundError(f"Model not found at {resolved}")
+        logger.warning(f"Model not found locally at {resolved}. Attempting Azure Blob download...")
+        _download_model_from_azure(resolved)
 
     logger.info(f"Loading YOLO model from {resolved}...")
     try:
@@ -54,6 +101,7 @@ def run_inference(
     image_bytes: bytes,
     confidence_threshold: float = 0.4,
     review_threshold: float = 0.25,
+    generate_annotated: bool = True,
 ) -> dict:
     """
     Run YOLO inference on an image.
@@ -116,11 +164,10 @@ def run_inference(
     # Generate annotated image
     annotated_bytes = b""
     try:
-        if results and len(results) > 0:
-            annotated = results[0].plot()  # numpy array (BGR)
+        if generate_annotated and results and len(results) > 0:
+            annotated = results[0].plot()
             from PIL import Image as PILImage
             import numpy as np
-            # Convert BGR to RGB
             annotated_rgb = annotated[:, :, ::-1]
             ann_img = PILImage.fromarray(annotated_rgb)
             buf = io.BytesIO()
