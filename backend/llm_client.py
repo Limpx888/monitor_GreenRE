@@ -14,9 +14,16 @@ import json
 import re
 from typing import Optional, Dict, Any, List
 import httpx
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
+_WASTE_ENV = os.path.abspath(os.path.join(_BACKEND_DIR, "..", "waste-api", ".env"))
+if os.path.exists(_WASTE_ENV):
+    for key, value in dotenv_values(_WASTE_ENV).items():
+        if not key or value is None or key in os.environ or key == "DATABASE_URL":
+            continue
+        os.environ[key] = value
 
 
 class LLMClient:

@@ -71,8 +71,9 @@ async def detect_waste(
     img_path = os.path.join(settings.upload_dir, img_filename)
     ann_path = os.path.join(settings.upload_dir, ann_filename)
 
-    with open(img_path, "wb") as f:
-        f.write(image_bytes)
+    if scan_mode != "live":
+        with open(img_path, "wb") as f:
+            f.write(image_bytes)
 
     # Run YOLO inference
     try:
@@ -80,10 +81,49 @@ async def detect_waste(
             image_bytes,
             confidence_threshold=settings.confidence_threshold,
             review_threshold=settings.review_threshold,
+            generate_annotated=(scan_mode != "live"),
         )
     except Exception as e:
         logger.error(f"Inference failed: {e}")
         raise HTTPException(status_code=500, detail=f"Model inference failed: {str(e)}")
+
+    if scan_mode == "live":
+        site_configs = {}
+        configs = db.query(WasteClassConfig).filter(
+            (WasteClassConfig.site_id == site_id) | (WasteClassConfig.site_id == None)
+        ).all()
+        for c in configs:
+            if c.class_name not in site_configs or c.site_id == site_id:
+                site_configs[c.class_name] = c
+
+        live_detections = []
+        category_counts = {}
+        for index, det in enumerate(result["detections"]):
+            class_name = det["class_name"]
+            if class_name in site_configs:
+                cfg = site_configs[class_name]
+                category, material, weight = cfg.category, cfg.material, cfg.avg_weight_kg
+            else:
+                default = get_class_config(class_name)
+                category, material, weight = default["category"], default["material"], default["avg_weight_kg"]
+            category_counts[category] = category_counts.get(category, 0) + 1
+            live_detections.append(DetectionOut(
+                id=f"live-{index}", class_name=class_name,
+                confidence=det["confidence"], bbox=det["bbox"],
+                category=category, material=material, estimated_weight_kg=weight,
+                weight_source="ESTIMATED", needs_review=det["needs_review"],
+                is_deleted=False, tip=get_tip_for_detection(class_name, category),
+            ))
+        return DetectResponse(
+            scan_id="live", image_url="", annotated_image_url="",
+            detections=live_detections,
+            summary={
+                "total_items": len(live_detections),
+                "needs_review": sum(1 for d in live_detections if d.needs_review),
+                "category_counts": category_counts,
+                "total_estimated_weight_kg": round(sum(d.estimated_weight_kg for d in live_detections), 3),
+            },
+        )
 
     # Save annotated image
     if result["annotated_image_bytes"]:

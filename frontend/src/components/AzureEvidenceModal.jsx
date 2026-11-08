@@ -339,11 +339,17 @@ export default function AzureEvidenceModal({ isOpen, onClose }) {
                         </div>
                       </div>
                     )}
-                    {s4?.recommended_action?.directive && (
+                    {s4?.recommended_action && (
                       <div style={{ background: 'rgba(2,132,199,0.08)', border: '1px solid rgba(2,132,199,0.25)', borderRadius: '8px', padding: '10px 12px', fontSize: '0.75rem' }}>
                         <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '4px' }}>Recommended BACnet Action</div>
-                        <div style={{ color: '#e2e8f0' }}>{s4.recommended_action.directive}</div>
-                        {s4.recommended_action.action && (
+                        <div style={{ color: '#e2e8f0' }}>
+                          {typeof s4.recommended_action === 'string'
+                            ? s4.recommended_action
+                            : Array.isArray(s4.recommended_action)
+                              ? s4.recommended_action.map((item) => (typeof item === 'string' ? item : item?.directive || item?.action || JSON.stringify(item))).join('; ')
+                              : (s4.recommended_action.directive || s4.recommended_action.action || JSON.stringify(s4.recommended_action))}
+                        </div>
+                        {s4.recommended_action?.action && !Array.isArray(s4.recommended_action) && (
                           <div style={{ color: '#64748b', marginTop: '2px' }}>Command: {s4.recommended_action.action}</div>
                         )}
                       </div>

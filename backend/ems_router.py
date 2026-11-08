@@ -743,7 +743,11 @@ def get_tariff_rates(db: Session = Depends(get_db)):
 
 @router.get("/reports/greenre")
 def download_greenre_evidence(db: Session = Depends(get_db)):
-    pdf_bytes = build_greenre_pdf(db)
+    try:
+        pdf_bytes = build_greenre_pdf(db)
+    except Exception as error:
+        print(f"[Reports] GreenRE PDF build failed: {error}")
+        raise HTTPException(status_code=500, detail=f"GreenRE PDF generation failed: {error}") from error
     filename = f"greenre-evidence-{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
     return Response(
         content=pdf_bytes,

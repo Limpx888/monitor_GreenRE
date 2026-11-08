@@ -67,7 +67,7 @@ def candidate_database_urls(raw: str) -> list[str]:
 
 
 def _try_engine(url: str):
-    connect_args = {"timeout": 8}
+    connect_args = {"timeout": 3}
     if url.startswith("postgresql+pg8000"):
         connect_args["ssl_context"] = True
     engine = create_engine(

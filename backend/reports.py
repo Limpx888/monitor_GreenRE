@@ -34,6 +34,28 @@ from reportlab.platypus import (
 from ems_service import zone_consumption
 
 
+def _as_text(value, default: str = "") -> str:
+    """Flatten Azure/LLM fields that may be str, dict, or list into PDF-safe text."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        cleaned = value.strip().replace("<", "&lt;").replace(">", "&gt;")
+        return cleaned or default
+    if isinstance(value, dict):
+        for key in ("directive", "action", "diagnosis", "summary", "physical_remediation"):
+            if value.get(key):
+                return _as_text(value.get(key), default)
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except Exception:
+            return default
+    if isinstance(value, (list, tuple)):
+        parts = [_as_text(item) for item in value]
+        joined = "; ".join(part for part in parts if part)
+        return joined or default
+    return str(value).replace("<", "&lt;").replace(">", "&gt;")
+
+
 def generate_audit_hmac(trace_id: str, timestamp_str: str, overall_score: float) -> str:
     """Computes cryptographic HMAC-SHA256 signature guaranteeing audit integrity."""
     secret_key = b"greenre-penang-hackfest-enterprise-audit-key-2026"
@@ -342,9 +364,14 @@ def build_greenre_pdf(db) -> bytes:
     story.append(Spacer(1, 6))
 
     # AI Diagnosis & Corrective Directive Box
+    diagnosis = _as_text(s4.get("diagnosis"), "Equipment operational anomaly confirmed.")
+    mitigation = _as_text(
+        s4.get("recommended_action"),
+        "Re-index damper actuator feedback & verify closed-loop tracking.",
+    )
     diag_text = (
-        f"<b>Azure OpenAI Diagnostic Determination:</b> {s4.get('diagnosis', 'Equipment operational anomaly confirmed.')}<br/>"
-        f"<b>Prescribed BACnet Mitigation:</b> {s4.get('recommended_action', {}).get('directive', 'Re-index damper actuator feedback & verify closed-loop tracking.')}"
+        f"<b>Azure OpenAI Diagnostic Determination:</b> {diagnosis}<br/>"
+        f"<b>Prescribed BACnet Mitigation:</b> {mitigation}"
     )
     diag_table = Table([[Paragraph(diag_text, ParagraphStyle("DiagP", fontName="Helvetica", fontSize=7.5, leading=10.5, textColor=c_dark))]], colWidths=[182 * mm])
     diag_table.setStyle(TableStyle([
