@@ -167,8 +167,8 @@ def check_granular_health() -> Dict[str, Any]:
 
     # 4. Azure OpenAI Service Probe
     openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
-    openai_key = os.getenv("AZURE_OPENAI_API_KEY", "")
-    openai_model = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
+    openai_key = os.getenv("AZURE_OPENAI_KEY") or os.getenv("AZURE_OPENAI_API_KEY", "")
+    openai_model = os.getenv("AZURE_OPENAI_DEPLOYMENT") or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
     openai_configured = bool(openai_endpoint and openai_key)
     openai_status = {
         "name": "Azure OpenAI Service",
