@@ -7,17 +7,13 @@ import duckdb
 router = APIRouter(prefix="/api/water", tags=["Water Management"])
 
 def get_db():
-    candidates = [
-        os.path.join(os.path.dirname(__file__), "..", "water managemet", "water_management.duckdb"),
-        os.path.join(os.path.dirname(__file__), "..", "ijm-water-ai", "water_management.duckdb"),
-        os.path.join(os.path.dirname(__file__), "water_management.duckdb"),
-        "water_management.duckdb",
-        r"c:\Users\User\Documents\Competition Project\AI4Sustainability Hackfest\water managemet\water_management.duckdb"
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return duckdb.connect(c, read_only=True)
-    raise HTTPException(status_code=500, detail="water_management.duckdb database file not found")
+    """Historical water data: Parquet from Azure Blob Storage (see water_history.py)."""
+    from water_history import cursor
+
+    try:
+        return cursor()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 def get_greenre_rules():
     candidates = [

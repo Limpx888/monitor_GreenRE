@@ -35,3 +35,6 @@ runs/
 
 # Archived reports / uploads written by blob_store.py when Azure Blob is not configured
 backend/data/files/
+
+# Water history exported to Parquet (source of truth lives in Azure Blob)
+backend/data/water_history/
