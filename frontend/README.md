@@ -96,7 +96,7 @@ Layout: `src/layouts/AppShell.jsx` provides the sticky nav, module links, theme 
 | `/water/*` page bodies (4) | 🟡 | legacy styles in a forced-light island (`data-theme="light"`) |
 | `/waste/*` layout (nav, site picker) | ✅ | AppShell + NavTabs |
 | `/waste/*` page bodies (6, incl. live camera scan) | 🟡 | legacy styles in a forced-light island |
-| `/reservations` | 🟡 | logo links home; own header and 231 inline styles remain |
+| `/reservations` | 🟡 | AppShell, PageHeader and Tabs; booking cards still use inline styles |
 | `/twin` digital twin | 🟡 | logo links home; Phase 4 (building interaction) + Phase 5 |
 | `/zone/:id`, `/floor/:id` | ⬜ | Phase 5 |
 
