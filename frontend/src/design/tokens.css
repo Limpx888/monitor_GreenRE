@@ -11,7 +11,9 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-:root {
+:root,
+[data-theme="light"] {
+  /* [data-theme="light"] also lets a subtree force light (legacy module pages inside a dark shell) */
   color-scheme: light;
 
   /* Brand: eco green */
