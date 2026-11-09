@@ -9,6 +9,12 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      // Live telemetry WebSockets (e.g. /ws/water-metrics)
+      '/ws': {
+        target: 'ws://127.0.0.1:5000',
+        ws: true,
+        changeOrigin: true,
+      },
       '/api/v1/dashboard': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,

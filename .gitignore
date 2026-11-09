@@ -38,3 +38,13 @@ backend/data/files/
 
 # Water history exported to Parquet (source of truth lives in Azure Blob)
 backend/data/water_history/
+
+# Waste API uploads and exports
+waste-api/uploads/
+waste-api/exports/
+waste-api/*.db
+waste-api/*.db-wal
+waste-api/*.db-shm
+
+# Edge simulator runtime state
+edge-simulator/.meter_state.json

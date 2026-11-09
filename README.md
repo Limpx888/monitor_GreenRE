@@ -96,6 +96,126 @@ The modernized platform establishes rigorous industrial standards across four co
 
 ## 🚀 Quickstart & How to Run
 
+### Prerequisites
+
+| Tool | Version | Used for |
+|---|---|---|
+| Python | 3.11 – 3.13 | FastAPI backend, edge simulators |
+| Node.js | 20+ | Vite + React 19 frontend |
+| MQTT broker | Mosquitto 2.x | Live water telemetry (`ecopulse/water/flow`) |
+
+Install a broker **once**, using one of these:
+
+```powershell
+# Windows (native). Installs a "mosquitto" service that auto-starts on localhost:1883
+winget install --id EclipseFoundation.Mosquitto -e
+
+# or, with Docker Desktop installed
+docker compose up -d mqtt
+```
+
+### Run the full stack locally (2 terminals)
+
+Run every command from the project root (`AI4Sustainability Hackfest/`).
+
+```powershell
+# 0. One-time install of backend and frontend dependencies
+pip install -r backend/requirements.txt
+npm --prefix frontend install
+
+# Terminal 1: backend (http://127.0.0.1:5000)
+npm run backend
+
+# Terminal 2: frontend (http://127.0.0.1:5173)
+npm run frontend
+```
+
+`npm run backend` starts everything on the server side:
+
+- the API
+- MQTT ingest
+- the `/ws/water-metrics` WebSocket
+- the **smart water meter simulator** (`edge-simulator/mock_water_meters.py`), which the backend starts and stops with itself
+
+Under the hood the two scripts run:
+
+```powershell
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 5000 --reload --timeout-graceful-shutdown 3
+npm --prefix frontend run dev
+```
+
+> - Don't also run `mock_water_meters.py` by hand while the backend auto-starts it. Two simulators publishing the same meter IDs would corrupt the meter totals.
+> - To feed **real meters** (or a manually run simulator) instead, set `WATER_SIMULATOR_AUTOSTART=false` before starting the backend.
+> - Optional: to stream electrical power-quality data for the EMS dashboards, run `python simulators/bdg2_streamer.py --interval 5`, or set `AUTO_START_SIMULATOR=true`.
+
+Open **http://127.0.0.1:5173/water**. The water dashboard opens in **● Live** mode:
+
+- **Total Flow Volume** ticks every 2 s (the sum of all meter registers).
+- **Disaggregated Water Time Series** scrolls in 1- or 5-minute windows over the last 24 h.
+- **Fluid Meter Distribution** shows each category's live share of consumption.
+
+Switch to **Historical** to browse the BDG2 2016–2017 dataset.
+
+> 💡 If the backend is started **without** `--reload`, restart it after pulling code changes, or new endpoints such as `/ws/water-metrics` will return 404. With `npm run backend`, code changes reload automatically.
+
+### 💧 Real-time water pipeline
+
+```
+edge-simulator/mock_water_meters.py ──MQTT──▶ Mosquitto :1883 ──▶ backend/water_mqtt.py
+   (6 smart flow meters, datetime.now())       topic: ecopulse/water/flow        │ insert
+                                                                                  ▼
+ React WaterDashboardPage ◀──WebSocket /ws/water-metrics (2 s)── backend/water_live_db.py
+   (zustand: src/stores/waterLiveStore.js)                         DuckDB backend/data/water_live.duckdb
+```
+
+**Simulator options** (when running it manually with `WATER_SIMULATOR_AUTOSTART=false`)
+
+```powershell
+python edge-simulator/mock_water_meters.py --dry-run --ticks 3   # print payloads only, no broker needed
+python edge-simulator/mock_water_meters.py --interval 1          # faster stream
+python edge-simulator/mock_water_meters.py --leak M-Irrigation   # inject a 1.5 m³/h leak for a demo
+python edge-simulator/mock_water_meters.py --host 192.168.1.20   # remote broker
+```
+
+Meter registers (`total_volume_m3`) are saved to `edge-simulator/.meter_state.json`, so they keep increasing across restarts. Delete that file to reset the meters.
+
+**Payload** (one message per meter per tick):
+
+```json
+{"timestamp": "2026-11-09T14:03:12.481+08:00", "meter_id": "M-Chiller-01",
+ "water_category": "Chilled/Cooling", "flow_rate_m3_per_hr": 1.734, "total_volume_m3": 6310.2792}
+```
+
+**Live water endpoints**
+
+| Endpoint | Description |
+|---|---|
+| `WS /ws/water-metrics?bucket=1\|5` | Pushes KPIs, distribution and time series every 2 s. Send `{"bucket": 5}` to switch the window size |
+| `GET /api/water/live/snapshot?bucket=1` | The same payload as a one-shot request |
+| `GET /api/water/live/status` | MQTT ingest health (broker connected, messages ok/rejected, last error) |
+
+**Configuration** (environment variables, all optional)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MQTT_BROKER_HOST` / `MQTT_BROKER_PORT` | `localhost` / `1883` | Broker used by the backend and the simulator |
+| `WATER_MQTT_TOPIC` | `ecopulse/water/flow` | Telemetry topic |
+| `WATER_LIVE_ENABLED` | `true` | Set to `false` to disable MQTT ingest and the WebSocket |
+| `WATER_LIVE_DB_PATH` | `backend/data/water_live.duckdb` | Live DuckDB file (separate from the read-only historical DB) |
+| `WATER_LIVE_RETENTION_HOURS` | `48` | Older readings are pruned automatically |
+| `WATER_WS_INTERVAL` | `2.0` | WebSocket broadcast period in seconds |
+| `WATER_SIMULATOR_AUTOSTART` | `true` | The backend starts and stops the smart water meter simulator itself |
+| `WATER_SIMULATOR_INTERVAL` | `2` | Publish period of the auto-started simulator, in seconds |
+
+**Troubleshooting**
+
+| Symptom | Fix |
+|---|---|
+| Yellow banner "Backend is not connected to the MQTT broker" | Start the broker. On Windows: `Start-Service mosquitto` (admin), or `docker compose up -d mqtt` |
+| Chart says "Waiting for smart meter readings…" | Check the backend log for `[WaterLive] Smart water meter simulator started`. If `WATER_SIMULATOR_AUTOSTART=false`, run `python edge-simulator/mock_water_meters.py` |
+| Badge stuck on **CONNECTING** / **RECONNECTING** | The backend isn't running on port 5000, or it's an old process: restart it |
+| `curl http://127.0.0.1:5000/api/water/live/status` returns 404 | The backend is running old code: restart it |
+
 ### Option 1: One-Click Execution via Makefile
 
 ```bash
@@ -118,7 +238,7 @@ make run-frontend
 ### Option 2: Docker & Docker Compose (Production Setup)
 
 ```bash
-# Spin up TimescaleDB and the FastAPI backend with health checks
+# Spin up TimescaleDB, the Mosquitto MQTT broker and the FastAPI backend with health checks
 docker-compose up -d
 
 # Check service logs and health probes
