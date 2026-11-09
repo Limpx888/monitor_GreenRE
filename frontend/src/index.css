@@ -2106,7 +2106,9 @@ html, body, #root {
   font-size: 12px;
 }
 
-.font-medium {
+/* Scoped to the waste table: a global .font-medium overrode Tailwind's
+   font-medium utility and turned text near-white across the app. */
+.waste-table .font-medium {
   font-weight: 600;
   color: #e2e8f0;
 }
