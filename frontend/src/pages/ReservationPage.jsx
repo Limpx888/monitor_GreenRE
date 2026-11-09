@@ -308,7 +308,7 @@ export default function ReservationPage() {
       {/* Top Header Bar */}
       <div className="top-bar" style={{ background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid #1e293b' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/gogreen-logo.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+          <img src="/gogreen-logo-128.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
           <div>
             <div className="system-title" style={{ color: '#ffffff', fontWeight: 800, fontSize: '18px' }}>GoGreen</div>
             <div className="system-subtitle" style={{ color: '#94a3b8', fontSize: '12px' }}>The Light City Penang · Hybrid Reservation System</div>

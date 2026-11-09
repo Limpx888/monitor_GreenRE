@@ -31,7 +31,7 @@ export function ThemeToggle({ className }) {
 export function Brand({ compact = false }) {
   return (
     <Link to="/" className="flex items-center gap-2.5 rounded-md" aria-label="GoGreen home">
-      <img src="/gogreen-logo.jpg" alt="" className="size-9 rounded-md object-cover ring-1 ring-line" />
+      <img src="/gogreen-logo-128.jpg" alt="" className="size-9 rounded-md object-cover ring-1 ring-line" />
       {!compact && (
         <span className="leading-tight">
           <span className="block text-sm font-extrabold tracking-[0.12em] text-fg">GOGREEN</span>
