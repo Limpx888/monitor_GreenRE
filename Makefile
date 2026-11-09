@@ -18,7 +18,7 @@ build:
 	npm --prefix frontend run build
 
 run-backend:
-	python -m uvicorn backend.main:app --host 127.0.0.1 --port 5000 --reload
+	python -m uvicorn backend.main:app --host 127.0.0.1 --port 5000 --reload --timeout-graceful-shutdown 3
 
 run-frontend:
 	npm --prefix frontend run dev

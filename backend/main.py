@@ -61,6 +61,7 @@ from app.routers.actions_router import router as waste_actions_router
 from app.routers.greenre_router import router as waste_greenre_router
 from app.routers.collections_router import router as waste_collections_router
 from water_router import router as water_router
+from water_live_router import router as water_live_router, start_water_live, stop_water_live
 from reports_router import router as reports_router
 
 # -------------------------------------------------------------
@@ -516,7 +517,19 @@ async def lifespan(app: FastAPI):
     else:
         print("🔒 [Environment Isolation] AUTO_START_SIMULATOR=false; simulators remain idle on startup.")
 
+    # 3. Live water telemetry: MQTT -> DuckDB -> WebSocket (/ws/water-metrics)
+    water_live_enabled = os.getenv("WATER_LIVE_ENABLED", "true").lower() in {"1", "true", "yes"}
+    if water_live_enabled:
+        try:
+            await start_water_live()
+        except Exception as error:
+            water_live_enabled = False
+            print(f"[WaterLive] startup skipped: {error}")
+
     yield
+
+    if water_live_enabled:
+        await stop_water_live()
 
     # 3. Simulator Auto-Stop
     if streamer_process:
@@ -570,6 +583,7 @@ app.include_router(waste_actions_router)
 app.include_router(waste_greenre_router)
 app.include_router(waste_collections_router)
 app.include_router(water_router)
+app.include_router(water_live_router)
 app.include_router(reports_router)
 
 

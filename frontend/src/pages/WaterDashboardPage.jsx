@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { waterApi } from '../api/waterApi';
+import { useWaterLiveStore } from '../stores/waterLiveStore';
 
 const METER_COLORS = {
   general_water: '#0284c7', // Sky blue
@@ -22,15 +23,49 @@ const METER_LABELS = {
   steam: 'Boiler Steam System',
 };
 
+const EMPTY_TOTALS = { general_water: 0, chilled_water: 0, irrigation: 0, hot_water: 0, steam: 0 };
+
+const LIVE_STATUS = {
+  open: { label: 'LIVE', bg: '#dcfce7', fg: '#166534' },
+  connecting: { label: 'CONNECTING', bg: '#fef9c3', fg: '#854d0e' },
+  reconnecting: { label: 'RECONNECTING', bg: '#fef9c3', fg: '#854d0e' },
+  closed: { label: 'OFFLINE', bg: '#fee2e2', fg: '#991b1b' },
+  idle: { label: 'OFFLINE', bg: '#fee2e2', fg: '#991b1b' },
+};
+
+const formatClock = (iso) => (iso ? iso.slice(11, 19) : '--:--:--');
+const formatBucketTick = (iso) => (iso ? iso.slice(11, 16) : '');
+
 export default function WaterDashboardPage() {
   const { activeBuilding, selectedBuildingData, loading: buildingsLoading, connError, retryConnect } = useOutletContext();
+  const [mode, setMode] = useState('live'); // 'live' (MQTT -> DuckDB -> WS) | 'historical' (BDG2)
+  const isLive = mode === 'live';
   const [readings, setReadings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState('daily');
   const [limit, setLimit] = useState(60);
   const [error, setError] = useState('');
 
+  // Live stream state (zustand)
+  const liveStatus = useWaterLiveStore((s) => s.status);
+  const liveKpi = useWaterLiveStore((s) => s.kpi);
+  const liveDistribution = useWaterLiveStore((s) => s.distribution);
+  const liveSeries = useWaterLiveStore((s) => s.timeSeries);
+  const livePipeline = useWaterLiveStore((s) => s.pipeline);
+  const liveBucket = useWaterLiveStore((s) => s.bucket);
+  const liveUpdatedAt = useWaterLiveStore((s) => s.lastUpdate);
+  const connectLive = useWaterLiveStore((s) => s.connect);
+  const disconnectLive = useWaterLiveStore((s) => s.disconnect);
+  const setLiveBucket = useWaterLiveStore((s) => s.setBucket);
+
   useEffect(() => {
+    if (!isLive) return undefined;
+    connectLive();
+    return () => disconnectLive();
+  }, [isLive, connectLive, disconnectLive]);
+
+  useEffect(() => {
+    if (isLive) return;
     if (!activeBuilding) {
       if (!buildingsLoading) {
         setLoading(false);
@@ -47,10 +82,12 @@ export default function WaterDashboardPage() {
         setError(err.message || 'Unable to load water consumption data');
       })
       .finally(() => setLoading(false));
-  }, [activeBuilding, granularity, limit, buildingsLoading]);
+  }, [isLive, activeBuilding, granularity, limit, buildingsLoading]);
 
-  // Pivot long-format readings into wide-format for stacked area chart
+  // Pivot long-format readings into wide-format for stacked area chart.
+  // The live stream arrives already pivoted by DuckDB (one row per tumbling window).
   const chartData = useMemo(() => {
+    if (isLive) return liveSeries;
     if (!readings || readings.length === 0) return [];
     const grouped = {};
     readings.forEach((r) => {
@@ -62,20 +99,31 @@ export default function WaterDashboardPage() {
     });
     // Sort chronological
     return Object.values(grouped).sort((a, b) => (a.timestamp > b.timestamp ? 1 : -1));
-  }, [readings]);
+  }, [isLive, liveSeries, readings]);
 
-  // Aggregate total consumption by meter type for this view
+  // Aggregate consumption by meter type for this view
+  // (live = volume consumed over the rolling 24 h window, from DuckDB)
   const totalsByType = useMemo(() => {
-    const totals = { general_water: 0, chilled_water: 0, irrigation: 0, hot_water: 0, steam: 0 };
+    const totals = { ...EMPTY_TOTALS };
+    if (isLive) {
+      liveDistribution.forEach((d) => {
+        if (totals[d.meter_type] !== undefined) totals[d.meter_type] = d.volume_m3;
+      });
+      return totals;
+    }
     readings.forEach((r) => {
       if (totals[r.meter_type] !== undefined) {
         totals[r.meter_type] += r.consumption;
       }
     });
     return totals;
-  }, [readings]);
+  }, [isLive, liveDistribution, readings]);
 
-  const totalVolume = Object.values(totalsByType).reduce((a, b) => a + b, 0);
+  const windowVolume = Object.values(totalsByType).reduce((a, b) => a + b, 0);
+  // Live headline KPI = building-wide sum of meter registers (total_volume_m3), ticking every 2 s
+  const totalVolume = isLive ? (liveKpi?.total_volume_m3 ?? 0) : windowVolume;
+  const liveBadge = LIVE_STATUS[liveStatus] || LIVE_STATUS.idle;
+  const brokerDown = isLive && liveStatus === 'open' && livePipeline && !livePipeline.connected;
 
   const pieData = useMemo(() => {
     return Object.entries(totalsByType)
@@ -83,10 +131,10 @@ export default function WaterDashboardPage() {
       .map(([type, val]) => ({
         name: METER_LABELS[type] || type,
         meter_type: type,
-        value: parseFloat(val.toFixed(1)),
-        percent: totalVolume > 0 ? ((val / totalVolume) * 100).toFixed(1) : 0,
+        value: parseFloat(val.toFixed(isLive ? 3 : 1)),
+        percent: windowVolume > 0 ? ((val / windowVolume) * 100).toFixed(1) : 0,
       }));
-  }, [totalsByType, totalVolume]);
+  }, [isLive, totalsByType, windowVolume]);
 
   const coolingRatio = useMemo(() => {
     const totalGenChilled = totalsByType.general_water + totalsByType.chilled_water;
@@ -94,7 +142,7 @@ export default function WaterDashboardPage() {
     return ((totalsByType.chilled_water / totalGenChilled) * 100).toFixed(1);
   }, [totalsByType]);
 
-  if (buildingsLoading) {
+  if (buildingsLoading && !isLive) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
         <div className="waste-spinner large" style={{ margin: '0 auto 16px' }} />
@@ -126,11 +174,60 @@ export default function WaterDashboardPage() {
             </span>
           </div>
           <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            High-precision multi-meter telemetry queried from DuckDB (20,641,574 historical records)
+            {isLive
+              ? `Real-time smart flow meters · MQTT → DuckDB → WebSocket · ${liveKpi?.active_meters ?? 0} meters reporting · updated ${formatClock(liveUpdatedAt)}`
+              : 'High-precision multi-meter telemetry queried from DuckDB (BDG2 2016–2017 historical records)'}
           </p>
         </div>
 
-        {/* Granularity & Limit Filters */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Live / Historical mode switch */}
+          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
+            {[['live', '● Live'], ['historical', 'Historical']].map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                style={{
+                  background: mode === m ? (m === 'live' ? '#059669' : '#0284c7') : 'transparent',
+                  color: mode === m ? 'white' : '#64748b',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {isLive ? (
+            /* Tumbling-window size for the live time series */
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
+              {[1, 5].map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setLiveBucket(b)}
+                  style={{
+                    background: liveBucket === b ? '#0284c7' : 'transparent',
+                    color: liveBucket === b ? 'white' : '#64748b',
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {b}-min
+                </button>
+              ))}
+            </div>
+          ) : (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
             {['hourly', 'daily', 'monthly'].map((g) => (
@@ -176,9 +273,17 @@ export default function WaterDashboardPage() {
             <option value="365">Last 365 periods</option>
           </select>
         </div>
+          )}
+        </div>
       </div>
 
-      {error && (
+      {brokerDown && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
+          ⚠️ Backend is not connected to the MQTT broker ({livePipeline.broker}). Start it with <code>docker compose up -d mqtt</code>, then run <code>python edge-simulator/mock_water_meters.py</code>.
+        </div>
+      )}
+
+      {!isLive && error && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
           ⚠️ {error}
         </div>
@@ -192,10 +297,14 @@ export default function WaterDashboardPage() {
             <span style={{ fontSize: '1.2rem' }}>🌊</span>
           </div>
           <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
-            {totalVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>m³</span>
+            {totalVolume.toLocaleString(undefined, isLive
+              ? { minimumFractionDigits: 3, maximumFractionDigits: 3 }
+              : { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>m³</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
-            ● Active Multi-Meter Stream
+          <div style={{ fontSize: '0.75rem', color: isLive && liveStatus !== 'open' ? '#b45309' : '#059669', fontWeight: 600, marginTop: '4px' }}>
+            {isLive
+              ? `● Live register · ${(liveKpi?.total_flow_m3_per_hr ?? 0).toFixed(2)} m³/h now · +${windowVolume.toFixed(2)} m³ (24h)`
+              : '● Active Multi-Meter Stream'}
           </div>
         </div>
 
@@ -246,24 +355,46 @@ export default function WaterDashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                Disaggregated Water Time Series ({granularity.toUpperCase()})
+                Disaggregated Water Time Series ({isLive ? `LIVE · ${liveBucket}-MIN WINDOWS` : granularity.toUpperCase()})
               </h3>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                Multi-meter volumetric flow trends (m³) for {activeBuilding}
+                {isLive
+                  ? `Volume consumed per ${liveBucket}-minute window (m³), last 24 h`
+                  : `Multi-meter volumetric flow trends (m³) for ${activeBuilding}`}
               </span>
             </div>
-            <span style={{ fontSize: '0.7rem', background: '#f0fdf4', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-              LIVE QUERY
-            </span>
+            {isLive ? (
+              <span style={{ fontSize: '0.7rem', background: liveBadge.bg, color: liveBadge.fg, padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                {liveBadge.label}
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.7rem', background: '#f0fdf4', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                LIVE QUERY
+              </span>
+            )}
           </div>
 
           <div style={{ height: '320px', width: '100%' }}>
-            {loading ? (
+            {isLive && chartData.length === 0 ? (
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px', textAlign: 'center' }}>
+                {liveStatus === 'open' ? (
+                  <>
+                    <span>Waiting for smart meter readings…</span>
+                    <span style={{ fontSize: '0.75rem' }}>Run <code>python edge-simulator/mock_water_meters.py</code> to start streaming.</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="waste-spinner" style={{ width: '24px', height: '24px' }} />
+                    <span style={{ fontSize: '0.85rem' }}>Connecting to live water stream (backend on port 5000)…</span>
+                  </>
+                )}
+              </div>
+            ) : !isLive && loading ? (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '8px' }}>
                 <div className="waste-spinner" style={{ width: '24px', height: '24px' }} />
                 <span style={{ fontSize: '0.85rem' }}>Loading telemetry from DuckDB...</span>
               </div>
-            ) : !activeBuilding ? (
+            ) : !isLive && !activeBuilding ? (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '10px' }}>
                 <span>{connError ? 'Backend disconnected. Please start backend on port 5000.' : 'Please select a building above.'}</span>
                 {retryConnect && (
@@ -298,8 +429,15 @@ export default function WaterDashboardPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="timestamp" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    tickFormatter={isLive ? formatBucketTick : undefined}
+                    minTickGap={24}
+                  />
+                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={isLive ? (v) => v.toFixed(3) : undefined} />
                   <Tooltip
                     contentStyle={{
                       background: 'rgba(255, 255, 255, 0.96)',
@@ -310,11 +448,11 @@ export default function WaterDashboardPage() {
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
-                  <Area type="monotone" dataKey="general_water" name="General Water" stroke={METER_COLORS.general_water} fillOpacity={1} fill="url(#colorGeneral)" />
-                  <Area type="monotone" dataKey="chilled_water" name="Chilled / Cooling" stroke={METER_COLORS.chilled_water} fillOpacity={1} fill="url(#colorChilled)" />
-                  <Area type="monotone" dataKey="irrigation" name="Irrigation" stroke={METER_COLORS.irrigation} fillOpacity={1} fill="url(#colorIrrigation)" />
-                  <Area type="monotone" dataKey="hot_water" name="Hot Water" stroke={METER_COLORS.hot_water} fill={METER_COLORS.hot_water} fillOpacity={0.2} />
-                  <Area type="monotone" dataKey="steam" name="Steam" stroke={METER_COLORS.steam} fill={METER_COLORS.steam} fillOpacity={0.2} />
+                  <Area type="monotone" dataKey="general_water" name="General Water" stroke={METER_COLORS.general_water} fillOpacity={1} fill="url(#colorGeneral)" isAnimationActive={!isLive} />
+                  <Area type="monotone" dataKey="chilled_water" name="Chilled / Cooling" stroke={METER_COLORS.chilled_water} fillOpacity={1} fill="url(#colorChilled)" isAnimationActive={!isLive} />
+                  <Area type="monotone" dataKey="irrigation" name="Irrigation" stroke={METER_COLORS.irrigation} fillOpacity={1} fill="url(#colorIrrigation)" isAnimationActive={!isLive} />
+                  <Area type="monotone" dataKey="hot_water" name="Hot Water" stroke={METER_COLORS.hot_water} fill={METER_COLORS.hot_water} fillOpacity={0.2} isAnimationActive={!isLive} />
+                  <Area type="monotone" dataKey="steam" name="Steam" stroke={METER_COLORS.steam} fill={METER_COLORS.steam} fillOpacity={0.2} isAnimationActive={!isLive} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -327,7 +465,7 @@ export default function WaterDashboardPage() {
             Fluid Meter Distribution
           </h3>
           <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 16px 0' }}>
-            Proportion of fluid load by sub-system
+            {isLive ? 'Live share of volume consumed by sub-system (rolling 24 h)' : 'Proportion of fluid load by sub-system'}
           </p>
 
           <div style={{ height: '220px', width: '100%' }}>
@@ -341,6 +479,7 @@ export default function WaterDashboardPage() {
                   outerRadius={85}
                   paddingAngle={4}
                   dataKey="value"
+                  isAnimationActive={!isLive}
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={METER_COLORS[entry.meter_type] || '#94a3b8'} />

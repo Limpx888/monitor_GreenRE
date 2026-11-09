@@ -21,3 +21,5 @@ azure-identity>=1.19.0
 azure-keyvault-secrets>=4.8.0
 azure-storage-blob>=12.20.0
 psycopg[binary]>=3.2
+duckdb>=1.1,<2
+paho-mqtt>=2.0,<3

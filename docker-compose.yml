@@ -19,6 +19,15 @@ services:
       timeout: 5s
       retries: 5
 
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: ecopulse-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./edge-simulator/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
   backend:
     build:
       context: .
@@ -35,6 +44,8 @@ services:
       AUTO_START_SIMULATOR: "false"
       JWT_SECRET: "enterprise-secret-key-greenre-2026"
       ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:5000"
+      MQTT_BROKER_HOST: "mqtt"
+      MQTT_BROKER_PORT: "1883"
     ports:
       - "5000:5000"
 
