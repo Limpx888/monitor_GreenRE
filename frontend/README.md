@@ -10,11 +10,14 @@ npm run build      # production build in dist/
 
 | URL | What it is |
 |---|---|
-| `/welcome` | Product landing page with the 3D waterfront scene. First-time visitors of `/` are redirected here once. |
+| `/` | **Home dashboard**: the 3D waterfront scene with the story sections and one live card per module. The logo on every page links here. `/welcome` redirects here. |
+| `/indoor` | Indoor environment: live CO₂ / PM2.5 per floor vs. GreenRE EQ-3 (`/api/v1/dashboard/ieq-live`) |
+| `/carbon` | Carbon dioxide: CO₂e, energy, cost and EEI savings (`/api/v1/sustainability/experiment`) |
+| `/water/*`, `/waste/*`, `/reservations` | Water, waste and reserve management |
+| `/twin` | Digital twin (3D tower, NILM, zone drill-down). Was `/` before. |
 | `/design` | Living style guide: every token and component in both themes |
-| `/`, `/water`, `/waste`, `/reservations` | The app modules |
 
-URL flags for `/welcome`: `?fps` shows a frame-rate meter, and `?clean` hides the overlay UI (used to capture `public/landing-poster.jpg`).
+URL flags for `/`: `?fps` shows a frame-rate meter, and `?clean` hides the overlay UI (used to capture `public/landing-poster.jpg`).
 
 ---
 
@@ -86,16 +89,20 @@ Layout: `src/layouts/AppShell.jsx` provides the sticky nav, module links, theme 
 | Page | Shared components | Notes |
 |---|---|---|
 | `/design` style guide | ✅ | |
-| `/welcome` landing | ✅ | |
-| `/water/*` (4 pages) | ⬜ | Phase 5 |
-| `/waste/*` (6 pages, incl. live camera scan) | ⬜ | Phase 5 |
-| `/reservations` | ⬜ | Phase 5 (231 inline styles) |
+| `/` home dashboard | ✅ | |
+| `/indoor` indoor environment | ✅ | new |
+| `/carbon` carbon dioxide | ✅ | new |
+| `/water/*` layout (nav, building picker, errors) | ✅ | AppShell + NavTabs |
+| `/water/*` page bodies (4) | 🟡 | legacy styles in a forced-light island (`data-theme="light"`) |
+| `/waste/*` layout (nav, site picker) | ✅ | AppShell + NavTabs |
+| `/waste/*` page bodies (6, incl. live camera scan) | 🟡 | legacy styles in a forced-light island |
+| `/reservations` | 🟡 | logo links home; own header and 231 inline styles remain |
+| `/twin` digital twin | 🟡 | logo links home; Phase 4 (building interaction) + Phase 5 |
 | `/zone/:id`, `/floor/:id` | ⬜ | Phase 5 |
-| `/` digital-twin dashboard | ⬜ | Phase 4 (building interaction) + Phase 5 |
 
 ---
 
-## Performance report: landing page (`/welcome`)
+## Performance report: home page (`/`, formerly `/welcome`)
 
 Measured on the production build (`vite build` + `vite preview`), desktop viewport 1440×900, 9 Nov 2026.
 
@@ -115,4 +122,4 @@ How this was achieved:
 * `PerformanceMonitor` lowers DPR and turns off effects at runtime if FPS drops.
 * Textures, geometries and materials are disposed on unmount.
 
-**FPS:** not measurable in this environment. Headless Chromium uses software WebGL (SwiftShader), where a frame takes over a second. To measure on real hardware, open `/welcome?fps`; the meter shows a 1 s rolling average. The 60 FPS target applies to the `high` tier on a mid-range laptop with a discrete or recent integrated GPU. If it falls short, `PerformanceMonitor` degrades the scene automatically.
+**FPS:** not measurable in this environment. Headless Chromium uses software WebGL (SwiftShader), where a frame takes over a second. To measure on real hardware, open `/?fps`; the meter shows a 1 s rolling average. The 60 FPS target applies to the `high` tier on a mid-range laptop with a discrete or recent integrated GPU. If it falls short, `PerformanceMonitor` degrades the scene automatically.
