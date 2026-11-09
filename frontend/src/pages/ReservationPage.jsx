@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, CalendarDays, Clock, Users, Coffee, Projector, 
   Mic2, LayoutTemplate, PlusCircle, CheckCircle2, 
@@ -307,13 +307,13 @@ export default function ReservationPage() {
     <div className="dashboard" style={{ background: '#0b1120', minHeight: '100vh', color: '#0f172a' }}>
       {/* Top Header Bar */}
       <div className="top-bar" style={{ background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid #1e293b' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/gogreen-logo-128.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+        <Link to="/" aria-label="GoGreen home" title="Back to home" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', pointerEvents: 'auto', borderRadius: '8px' }}>
+          <img src="/gogreen-logo-128.jpg" alt="" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
           <div>
             <div className="system-title" style={{ color: '#ffffff', fontWeight: 800, fontSize: '18px' }}>GoGreen</div>
             <div className="system-subtitle" style={{ color: '#94a3b8', fontSize: '12px' }}>The Light City Penang · Hybrid Reservation System</div>
           </div>
-        </div>
+        </Link>
 
         <div className="top-bar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="status-pill" style={{ background: '#1e293b', border: '1px solid #334155', padding: '6px 14px' }}>

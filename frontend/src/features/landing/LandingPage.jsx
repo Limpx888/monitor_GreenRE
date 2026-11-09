@@ -1,14 +1,14 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, Radio, Recycle, ShieldCheck, Zap,
+  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
 } from 'lucide-react';
 import { Brand } from '../../layouts/AppShell';
 import { Button, StatusPill, cn } from '../../ui';
 import { detectTier, prefersReducedMotion } from '../building3d/capabilities';
 import { useWaterLiveStore } from '../../stores/waterLiveStore';
 import { useScrollStory } from './useScrollStory';
-import { markVisited } from './firstVisit';
+import { useIeqLive, useSustainability } from '../modules/useModuleData';
 
 const LightCityCanvas = lazy(() => import('../building3d/LightCityCanvas'));
 
@@ -27,11 +27,36 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { to: '/', icon: Building2, title: 'Digital twin', text: 'Floor-by-floor energy, NILM load disaggregation and indoor air quality.', accent: 'var(--gg-energy)' },
-  { to: '/water', icon: Droplets, title: 'Water', text: 'Live sub-metering, leak detection and WE-credit tracking.', accent: 'var(--gg-water)' },
-  { to: '/waste', icon: Recycle, title: 'Waste', text: 'Camera AI classifies items, guides disposal and tracks diversion.', accent: 'var(--gg-waste)' },
-  { to: '/reservations', icon: CalendarCheck, title: 'Reserve', text: 'Space bookings that drive HVAC and lighting schedules.', accent: 'var(--gg-reserve)' },
+  { id: 'indoor', to: '/indoor', icon: Wind, title: 'Indoor environment', text: 'Live CO₂ and PM2.5 on every floor against the GreenRE EQ-3 limit.', accent: '#34d399' },
+  { id: 'carbon', to: '/carbon', icon: Leaf, title: 'Carbon dioxide', text: 'Operational CO₂e before and after automated HVAC and lighting control.', accent: '#a3e635' },
+  { id: 'water', to: '/water', icon: Droplets, title: 'Water management', text: 'Live sub-metering, leak detection and WE-credit tracking.', accent: 'var(--gg-water)' },
+  { id: 'waste', to: '/waste', icon: Recycle, title: 'Waste management', text: 'Camera AI classifies items, guides disposal and tracks diversion.', accent: 'var(--gg-waste)' },
+  { id: 'reserve', to: '/reservations', icon: CalendarCheck, title: 'Reserve management', text: 'Space bookings that drive HVAC and lighting schedules.', accent: 'var(--gg-reserve)' },
+  { id: 'twin', to: '/twin', icon: Building2, title: 'Digital twin', text: 'Floor-by-floor energy, NILM load disaggregation and zone drill-down.', accent: '#2dd4bf' },
 ];
+
+/** One live figure per module card, so the home page works as the dashboard. */
+function useFeatureStats() {
+  const ieq = useIeqLive(8000);
+  const carbon = useSustainability();
+  const waterKpi = useWaterLiveStore((s) => s.kpi);
+  const waterOpen = useWaterLiveStore((s) => s.status) === 'open';
+  const ieqAlerts = ieq.data?.exceeded_floors?.length ?? 0;
+  return {
+    indoor: ieq.data
+      ? { value: `${Math.round(ieq.data.max_co2)} ppm`, label: ieqAlerts ? `peak CO₂ · ${ieqAlerts} floor alert${ieqAlerts > 1 ? 's' : ''}` : 'peak CO₂ · all floors compliant', tone: ieqAlerts ? 'danger' : 'success' }
+      : { value: ieq.error ? 'Offline' : '…', label: 'peak CO₂' },
+    carbon: carbon.data
+      ? { value: `${(carbon.data.total_co2e_saved_kg / 1000).toFixed(1)} t`, label: 'CO₂e avoided per month', tone: 'success' }
+      : { value: carbon.error ? 'Offline' : '…', label: 'CO₂e avoided per month' },
+    water: waterOpen && waterKpi?.active_meters > 0
+      ? { value: `${waterKpi.total_flow_m3_per_hr.toFixed(2)} m³/h`, label: `live flow · ${waterKpi.active_meters} meters`, tone: 'success' }
+      : { value: '…', label: 'live flow' },
+    waste: { value: 'AI scan', label: 'camera classification' },
+    reserve: { value: 'Book', label: 'rooms, halls and courts' },
+    twin: { value: '3D', label: 'zones, floors and NILM' },
+  };
+}
 
 function Poster({ visible }) {
   return (
@@ -111,14 +136,15 @@ export default function LandingPage() {
   const { scrollTo } = useScrollStory(rootRef, progressRef, reducedMotion);
 
   useEffect(() => {
-    markVisited();
     const prev = document.title;
-    document.title = 'GoGreen · Continuous GreenRE compliance';
+    document.title = 'GoGreen · Dashboard';
     return () => { document.title = prev; };
   }, []);
 
+  const stats = useFeatureStats();
+
   /** Camera flies into the hotel tower, the page fades to the app background, then the router hands over. */
-  const enter = (to = '/') => {
+  const enter = (to) => {
     if (reducedMotion) { navigate(to); return; }
     setEntering(true);
     phaseRef.current = 'enter';
@@ -164,7 +190,7 @@ export default function LandingPage() {
           <Brand />
           <nav aria-label="Landing sections" className="ml-auto hidden md:block">
             <ul className="flex items-center gap-1 text-sm font-semibold">
-              {[['#how', 'How it works'], ['#features', 'Features'], ['#live', 'Live demo']].map(([href, label]) => (
+              {[['#how', 'How it works'], ['#live', 'Live demo']].map(([href, label]) => (
                 <li key={href}>
                   <a href={href} onClick={(e) => { e.preventDefault(); scrollTo(href); }} className="rounded-md px-3 py-2 text-muted hover:text-fg transition-colors duration-fast">
                     {label}
@@ -173,8 +199,8 @@ export default function LandingPage() {
               ))}
             </ul>
           </nav>
-          <Button size="sm" className="ml-auto md:ml-0" onClick={() => enter('/')} iconRight={<ArrowRight className="size-4" aria-hidden="true" />}>
-            Enter dashboard
+          <Button size="sm" className="ml-auto md:ml-0" onClick={() => scrollTo('#features')} iconRight={<ArrowRight className="size-4" aria-hidden="true" />}>
+            Modules
           </Button>
         </div>
       </header>
@@ -197,13 +223,14 @@ export default function LandingPage() {
                 sustainability teams catch waste as it happens and their audit evidence builds itself.
               </p>
               <div data-hero-fade className="mt-8 flex flex-wrap gap-3">
-                <Button size="lg" onClick={() => enter('/')} iconRight={<ArrowRight className="size-5" aria-hidden="true" />}>Enter dashboard</Button>
+                <Button size="lg" onClick={() => scrollTo('#features')} iconRight={<ArrowRight className="size-5" aria-hidden="true" />}>Explore modules</Button>
                 <Button size="lg" variant="secondary" className="border-white/20 bg-white/5 text-white hover:bg-white/10" onClick={() => scrollTo('#how')}>
                   See how it works
                 </Button>
               </div>
               <ul data-hero-fade className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#bcd0c7]">
                 <li className="flex items-center gap-2"><Activity className="size-4 text-brand-300" aria-hidden="true" /> GreenRE EE · WE · IEQ</li>
+                <li className="flex items-center gap-2"><Leaf className="size-4 text-brand-300" aria-hidden="true" /> CO₂ tracking</li>
                 <li className="flex items-center gap-2"><Radio className="size-4 text-brand-300" aria-hidden="true" /> Live IoT telemetry</li>
                 <li className="flex items-center gap-2"><Recycle className="size-4 text-brand-300" aria-hidden="true" /> AI waste vision</li>
               </ul>
@@ -270,21 +297,27 @@ export default function LandingPage() {
         {/* Features */}
         <section id="features" aria-labelledby="features-title" className="flex min-h-svh items-center py-24">
           <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-            <div className="ml-auto max-w-2xl">
+            <div className="ml-auto max-w-4xl">
               <div data-reveal>
-                <Eyebrow>One platform</Eyebrow>
+                <Eyebrow>Modules</Eyebrow>
                 <h2 id="features-title" className="[text-shadow:0_2px_28px_rgb(0_0_0/0.75)] text-3xl font-extrabold tracking-tight text-white sm:text-5xl">Every system, one source of truth.</h2>
               </div>
-              <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-                {FEATURES.map(({ to, icon: Icon, title, text, accent }, i) => (
-                  <li key={to} data-reveal data-reveal-delay={i * 0.08}>
+              <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {FEATURES.map(({ id, to, icon: Icon, title, text, accent }, i) => (
+                  <li key={to} data-reveal data-reveal-delay={i * 0.06}>
                     <Link
                       to={to}
                       onClick={(e) => { e.preventDefault(); enter(to); }}
                       className="group relative block h-full overflow-hidden rounded-xl border border-white/10 bg-[rgb(8_18_15/0.72)] p-5 shadow-lg backdrop-blur-xl transition-[transform,border-color] duration-base ease-standard hover:-translate-y-1 hover:border-white/25"
                     >
                       <span className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} aria-hidden="true" />
-                      <Icon className="size-6" style={{ color: accent }} aria-hidden="true" />
+                      <div className="flex items-start justify-between gap-3">
+                        <Icon className="size-6" style={{ color: accent }} aria-hidden="true" />
+                        <span className="text-right">
+                          <span className={cn('block font-mono tabular text-lg font-bold leading-tight', stats[id].tone === 'danger' ? 'text-danger' : 'text-fg')}>{stats[id].value}</span>
+                          <span className="block text-[11px] font-medium text-subtle">{stats[id].label}</span>
+                        </span>
+                      </div>
                       <h3 className="mt-4 text-lg font-bold text-fg">{title}</h3>
                       <p className="mt-1 text-sm text-muted">{text}</p>
                       <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-fg">
@@ -308,9 +341,9 @@ export default function LandingPage() {
             </p>
             <LiveTeaser />
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button size="lg" onClick={() => enter('/')} iconRight={<ArrowRight className="size-5" aria-hidden="true" />}>Enter dashboard</Button>
-              <Button size="lg" variant="secondary" className="border-white/20 bg-white/5 text-white hover:bg-white/10" onClick={() => enter('/water')}>
-                Open water monitoring
+              <Button size="lg" onClick={() => enter('/water')} iconRight={<ArrowRight className="size-5" aria-hidden="true" />}>Open water monitoring</Button>
+              <Button size="lg" variant="secondary" className="border-white/20 bg-white/5 text-white hover:bg-white/10" onClick={() => scrollTo('#features')}>
+                All modules
               </Button>
             </div>
           </SectionPanel>

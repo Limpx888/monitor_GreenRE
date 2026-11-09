@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import NilmChart from '../components/NilmChart';
@@ -755,13 +755,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="top-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src="/gogreen-logo-128.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+        <Link to="/" aria-label="GoGreen home" title="Back to home" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', pointerEvents: 'auto', borderRadius: '8px' }}>
+          <img src="/gogreen-logo-128.jpg" alt="" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
           <div>
             <div className="system-title">GoGreen</div>
             <div className="system-subtitle">The Light City Penang · Continuous Monitoring</div>
           </div>
-        </div>
+        </Link>
         <div className="top-bar-actions">
           {/* View mode controls removed: the 3D tower is the permanent dashboard view. */}
           <div className="status-pill">
