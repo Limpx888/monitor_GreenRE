@@ -1,0 +1,41 @@
+# Keep the build context small: only what the image needs is sent to the builder.
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+.git
+.github
+.vscode
+.claude
+
+# Secrets never go into images (the container reads Azure Key Vault)
+**/.env
+**/.env.*
+
+# Local databases: the app uses Azure PostgreSQL + Blob Storage
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.duckdb
+**/*.duckdb.wal
+backend/data/water_history
+backend/data/files
+backend/data/.duckdb_tmp
+
+# Large raw datasets and side projects not used at runtime
+water managemet
+ijm-water-ai
+simulators
+**/*.csv
+!backend/data/*.csv
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+waste-api/uploads
+waste-api/exports
+**/*.log
+runs
+assets
+tests
+*.glb

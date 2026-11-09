@@ -1099,3 +1099,9 @@ def get_sustainability_experiment(run_fresh: bool = False):
 def ingest_legacy_telemetry(payload: dict):
     print(f"Telemetry ingested: {payload.get('timestamp')} from {payload.get('building')}")
     return {"status": "success", "message": "Telemetry stored successfully"}
+
+
+# Built frontend (single-container deployment). Must stay last: it is a catch-all route.
+from spa import mount_spa  # noqa: E402
+
+mount_spa(app)
