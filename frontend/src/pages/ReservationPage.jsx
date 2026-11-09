@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import AppShell from '../layouts/AppShell';
+import { Badge, PageHeader, StatusPill, Tabs } from '../ui';
 import { 
   ArrowLeft, CalendarDays, Clock, Users, Coffee, Projector, 
   Mic2, LayoutTemplate, PlusCircle, CheckCircle2, 
@@ -109,7 +110,6 @@ const getFutureDateStr = (days = 2) => {
 };
 
 export default function ReservationPage() {
-  const navigate = useNavigate();
   const [view, setView] = useState('customer'); // 'customer' | 'admin'
   const [spaceType, setSpaceType] = useState('stay'); // 'stay' (Hotel) | 'meeting' | 'ballroom'
   
@@ -304,70 +304,29 @@ export default function ReservationPage() {
   const activeTotal = spaceType === 'stay' ? hotelGrandTotal : eventGrandTotal;
 
   return (
-    <div className="dashboard" style={{ background: '#0b1120', minHeight: '100vh', color: '#0f172a' }}>
-      {/* Top Header Bar */}
-      <div className="top-bar" style={{ background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid #1e293b' }}>
-        <Link to="/" aria-label="GoGreen home" title="Back to home" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', pointerEvents: 'auto', borderRadius: '8px' }}>
-          <img src="/gogreen-logo-128.jpg" alt="" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
-          <div>
-            <div className="system-title" style={{ color: '#ffffff', fontWeight: 800, fontSize: '18px' }}>GoGreen</div>
-            <div className="system-subtitle" style={{ color: '#94a3b8', fontSize: '12px' }}>The Light City Penang · Hybrid Reservation System</div>
-          </div>
-        </Link>
+    <AppShell>
+      <PageHeader
+        eyebrow="Reserve management"
+        accent="var(--gg-reserve)"
+        title="Hybrid reservation system"
+        description="Book hotel stays, meeting rooms and ballrooms. Every booking feeds the HVAC and lighting schedule for its floor."
+        meta={<><StatusPill tone="success" pulse>System active</StatusPill><Badge tone="info">GreenRE score 88.4 · Platinum</Badge></>}
+        actions={
+          <Tabs
+            label="Reservation view"
+            value={view}
+            onChange={setView}
+            items={[
+              { value: 'customer', label: 'Booking portal' },
+              { value: 'admin', label: 'Timeline & ops' },
+            ]}
+          />
+        }
+      />
 
-        <div className="top-bar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div className="status-pill" style={{ background: '#1e293b', border: '1px solid #334155', padding: '6px 14px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="pulse-dot" style={{ background: '#10b981' }}></span>
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '13px' }}>System Active</span>
-            </span>
-            <span className="divider-v" style={{ background: '#475569' }}></span>
-            <span className="score-badge" style={{ color: '#38bdf8', fontWeight: 700, fontSize: '13px' }}>GreenRE Score: 88.4 (Platinum)</span>
-          </div>
-
-          {/* Customer / Admin toggle */}
-          <div style={{ display: 'flex', background: '#1e293b', padding: '3px', borderRadius: '8px', border: '1px solid #334155' }}>
-            <button 
-              type="button"
-              style={{
-                background: view === 'customer' ? '#0d9488' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '13px',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 14px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              onClick={() => setView('customer')}
-            >
-              Booking Portal
-            </button>
-            <button 
-              type="button"
-              style={{
-                background: view === 'admin' ? '#4f46e5' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '13px',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 14px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              onClick={() => setView('admin')}
-            >
-              Timeline & Ops
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Reservation Content Canvas */}
-      <div style={{ position: 'absolute', top: '90px', left: 0, right: 0, bottom: '65px', overflowY: 'auto', padding: '24px 20px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: '1240px' }}>
+      {/* Main Reservation Content */}
+      <div>
+        <div>
           {view === 'customer' ? (
             <div className="flex flex-col lg:flex-row gap-6 items-start">
               
@@ -1388,23 +1347,6 @@ export default function ReservationPage() {
         </div>
       )}
 
-      {/* Segmented Bottom Tabs (Matching Dashboard & Navigation) */}
-      <div className="bottom-pills" style={{ pointerEvents: 'auto' }}>
-        {['Dashboard', 'Reserve Management', 'Waste Management', 'Water Management'].map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`pill-btn ${tab === 'Reserve Management' ? 'active' : 'inactive'}`}
-            onClick={() => {
-              if (tab === 'Dashboard') navigate('/');
-              else if (tab === 'Waste Management') navigate('/waste');
-              else if (tab === 'Water Management') navigate('/water');
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-    </div>
+    </AppShell>
   );
 }
