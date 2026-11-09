@@ -592,7 +592,6 @@ CURRENT_STATE = {
     "timestamp": "2016-03-15 03:00:00"
 }
 
-@app.get("/")
 @app.get("/api/health")
 def health_check():
     return {
