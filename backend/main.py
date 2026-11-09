@@ -24,6 +24,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 WASTE_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "waste-api"))
 sys.path.insert(0, WASTE_API_DIR)
 
+# Secrets: .env first, then Azure Key Vault (when AZURE_KEYVAULT_URL is set), before any module reads config
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+import keyvault_env  # noqa: E402
+
+keyvault_env.load()
+
 import numpy as np
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Depends

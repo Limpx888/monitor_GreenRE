@@ -12,11 +12,15 @@ from app.config import settings
 connect_args = {}
 if settings.database_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+elif settings.database_url.startswith("postgresql+pg8000"):
+    # Azure Database for PostgreSQL requires TLS
+    connect_args["ssl_context"] = True
 
 engine = create_engine(
     settings.database_url,
     connect_args=connect_args,
     echo=False,
+    pool_pre_ping=True,
 )
 
 # Enable WAL mode and foreign keys for SQLite

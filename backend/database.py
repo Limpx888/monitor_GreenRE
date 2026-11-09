@@ -9,6 +9,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
+import keyvault_env  # noqa: E402  (Azure Key Vault secrets, when AZURE_KEYVAULT_URL is set)
+
+keyvault_env.load()
+
 Base = declarative_base()
 
 POOLER_HOSTS = [
