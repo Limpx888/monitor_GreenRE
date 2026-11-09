@@ -53,6 +53,7 @@ from app.routers.actions_router import router as waste_actions_router
 from app.routers.greenre_router import router as waste_greenre_router
 from app.routers.collections_router import router as waste_collections_router
 from water_router import router as water_router
+from reports_router import router as reports_router
 
 # -------------------------------------------------------------
 # 1. 2-Channel 1D-CNN Seq2Point Inference Engine
@@ -561,6 +562,7 @@ app.include_router(waste_actions_router)
 app.include_router(waste_greenre_router)
 app.include_router(waste_collections_router)
 app.include_router(water_router)
+app.include_router(reports_router)
 
 
 # -------------------------------------------------------------
