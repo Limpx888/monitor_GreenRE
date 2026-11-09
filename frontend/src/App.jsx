@@ -21,10 +21,19 @@ import WaterAnalyticsPage from './pages/WaterAnalyticsPage';
 import WaterGreenREPage from './pages/WaterGreenREPage';
 import WaterRulesPage from './pages/WaterRulesPage';
 
+// Design system
+import './design/theme';
+import { Toaster } from './ui';
+import DesignSystemPage from './pages/DesignSystemPage';
+
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
+        {/* Living style guide for the GoGreen design system */}
+        <Route path="/design" element={<DesignSystemPage />} />
+
         {/* Existing Digital Twin routes */}
         <Route path="/" element={<DashboardPage />} />
         <Route path="/floor/:floorId" element={<FloorDetailPage />} />

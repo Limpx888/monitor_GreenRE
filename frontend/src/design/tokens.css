@@ -1,0 +1,278 @@
+/* =============================================================================
+   GoGreen design tokens
+   -----------------------------------------------------------------------------
+   Raw values live in CSS custom properties (--gg-*), so the theme can switch at
+   runtime via <html data-theme="light|dark">. `@theme inline` maps them onto
+   Tailwind v4 utilities, so you can write:
+     bg-surface  text-fg  text-muted  border-line  bg-brand-600  text-water
+     rounded-lg  shadow-md  duration-base  ease-standard  font-mono
+   Every text/background pair below meets WCAG AA (4.5:1) in both themes.
+   ============================================================================= */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+
+  /* Brand: eco green */
+  --gg-brand-50: #ecfdf5;
+  --gg-brand-100: #d1fae5;
+  --gg-brand-200: #a7f3d0;
+  --gg-brand-300: #6ee7b7;
+  --gg-brand-400: #34d399;
+  --gg-brand-500: #10b981;
+  --gg-brand-600: #059669;
+  --gg-brand-700: #047857;
+  --gg-brand-800: #065f46;
+  --gg-brand-900: #064e3b;
+
+  /* Module accents */
+  --gg-energy: #047857;
+  --gg-water: #0369a1;
+  --gg-waste: #b45309;
+  --gg-reserve: #7c3aed;
+
+  /* Semantic */
+  --gg-success: #047857;
+  --gg-success-bg: #ecfdf5;
+  --gg-warning: #b45309;
+  --gg-warning-bg: #fffbeb;
+  --gg-danger: #b91c1c;
+  --gg-danger-bg: #fef2f2;
+  --gg-info: #0369a1;
+  --gg-info-bg: #f0f9ff;
+
+  /* Surfaces & text */
+  --gg-bg: #f6f8f7;
+  --gg-surface: #ffffff;
+  --gg-surface-2: #f1f5f3;
+  --gg-surface-3: #e7ede9;
+  --gg-line: #e2e8e5;
+  --gg-line-strong: #c9d4ce;
+  --gg-fg: #0f1a16;
+  --gg-muted: #52625b;   /* 6.3:1 on white */
+  --gg-subtle: #5e6d66;  /* 4.6:1 on surface-3, 5.4:1 on white */
+  --gg-on-brand: #ffffff;
+  /* Primary action: white on brand-700 = 5.5:1 */
+  --gg-primary: #047857;
+  --gg-primary-hover: #065f46;
+  --gg-primary-soft: #ecfdf5;
+  --gg-primary-soft-fg: #047857;
+  --gg-overlay: rgb(10 17 14 / 0.45);
+
+  /* Elevation */
+  --gg-shadow-xs: 0 1px 2px rgb(15 26 22 / 0.05);
+  --gg-shadow-sm: 0 1px 3px rgb(15 26 22 / 0.08), 0 1px 2px rgb(15 26 22 / 0.04);
+  --gg-shadow-md: 0 6px 16px -4px rgb(15 26 22 / 0.10), 0 2px 4px rgb(15 26 22 / 0.04);
+  --gg-shadow-lg: 0 20px 40px -12px rgb(15 26 22 / 0.18), 0 4px 10px rgb(15 26 22 / 0.05);
+  --gg-ring: 0 0 0 3px rgb(16 185 129 / 0.45);
+
+  /* Motion */
+  --gg-dur-fast: 120ms;
+  --gg-dur-base: 200ms;
+  --gg-dur-slow: 320ms;
+  --gg-dur-scene: 1200ms;
+}
+
+/* Dark theme: applied when <html data-theme="dark"> (set by src/design/theme.js) */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --gg-energy: #34d399;
+  --gg-water: #38bdf8;
+  --gg-waste: #fbbf24;
+  --gg-reserve: #a78bfa;
+
+  --gg-success: #34d399;
+  --gg-success-bg: rgb(16 185 129 / 0.14);
+  --gg-warning: #fbbf24;
+  --gg-warning-bg: rgb(245 158 11 / 0.14);
+  --gg-danger: #f87171;
+  --gg-danger-bg: rgb(239 68 68 / 0.14);
+  --gg-info: #38bdf8;
+  --gg-info-bg: rgb(14 165 233 / 0.14);
+
+  --gg-bg: #0a110e;
+  --gg-surface: #111a16;
+  --gg-surface-2: #17231e;
+  --gg-surface-3: #1f2e27;
+  --gg-line: #24332c;
+  --gg-line-strong: #34463d;
+  --gg-fg: #e8f0ec;
+  --gg-muted: #9db0a7;   /* 7.9:1 on surface */
+  --gg-subtle: #889c92;  /* >=4.5:1 on every dark surface */
+  --gg-on-brand: #04130d;
+  /* Primary action: near-black on brand-400 = 9.9:1 */
+  --gg-primary: #34d399;
+  --gg-primary-hover: #6ee7b7;
+  --gg-primary-soft: rgb(16 185 129 / 0.14);
+  --gg-primary-soft-fg: #6ee7b7;
+  --gg-overlay: rgb(0 0 0 / 0.6);
+
+  --gg-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --gg-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5);
+  --gg-shadow-md: 0 8px 20px -6px rgb(0 0 0 / 0.6);
+  --gg-shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.7);
+  --gg-ring: 0 0 0 3px rgb(52 211 153 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gg-dur-fast: 0ms;
+    --gg-dur-base: 0ms;
+    --gg-dur-slow: 0ms;
+    --gg-dur-scene: 0ms;
+  }
+}
+
+@theme inline {
+  --color-brand-50: var(--gg-brand-50);
+  --color-brand-100: var(--gg-brand-100);
+  --color-brand-200: var(--gg-brand-200);
+  --color-brand-300: var(--gg-brand-300);
+  --color-brand-400: var(--gg-brand-400);
+  --color-brand-500: var(--gg-brand-500);
+  --color-brand-600: var(--gg-brand-600);
+  --color-brand-700: var(--gg-brand-700);
+  --color-brand-800: var(--gg-brand-800);
+  --color-brand-900: var(--gg-brand-900);
+
+  --color-energy: var(--gg-energy);
+  --color-water: var(--gg-water);
+  --color-waste: var(--gg-waste);
+  --color-reserve: var(--gg-reserve);
+
+  --color-success: var(--gg-success);
+  --color-success-bg: var(--gg-success-bg);
+  --color-warning: var(--gg-warning);
+  --color-warning-bg: var(--gg-warning-bg);
+  --color-danger: var(--gg-danger);
+  --color-danger-bg: var(--gg-danger-bg);
+  --color-info: var(--gg-info);
+  --color-info-bg: var(--gg-info-bg);
+
+  --color-bg: var(--gg-bg);
+  --color-surface: var(--gg-surface);
+  --color-surface-2: var(--gg-surface-2);
+  --color-surface-3: var(--gg-surface-3);
+  --color-line: var(--gg-line);
+  --color-line-strong: var(--gg-line-strong);
+  --color-fg: var(--gg-fg);
+  --color-muted: var(--gg-muted);
+  --color-subtle: var(--gg-subtle);
+  --color-on-brand: var(--gg-on-brand);
+  --color-primary: var(--gg-primary);
+  --color-primary-hover: var(--gg-primary-hover);
+  --color-primary-soft: var(--gg-primary-soft);
+  --color-primary-soft-fg: var(--gg-primary-soft-fg);
+  --color-overlay: var(--gg-overlay);
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* Type scale (1.25 ratio) */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1.1;
+  --text-6xl: 3.75rem;
+  --text-6xl--line-height: 1.05;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-xs: var(--gg-shadow-xs);
+  --shadow-sm: var(--gg-shadow-sm);
+  --shadow-md: var(--gg-shadow-md);
+  --shadow-lg: var(--gg-shadow-lg);
+  --shadow-ring: var(--gg-ring);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* Duration utilities that respect reduced motion: duration-fast / -base / -slow */
+@utility duration-fast {
+  transition-duration: var(--gg-dur-fast);
+}
+@utility duration-base {
+  transition-duration: var(--gg-dur-base);
+}
+@utility duration-slow {
+  transition-duration: var(--gg-dur-slow);
+}
+
+/* Tabular figures for KPIs and tables */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* One consistent, visible focus ring for every interactive element */
+@layer base {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: none;
+    box-shadow: var(--gg-ring);
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* Scoped base for pages built on the design system (the AppShell adds .gg) */
+.gg {
+  overflow-x: clip;
+  background: var(--gg-bg);
+  color: var(--gg-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gg-skeleton {
+  background: linear-gradient(90deg, var(--gg-surface-2) 25%, var(--gg-surface-3) 37%, var(--gg-surface-2) 63%);
+  background-size: 400% 100%;
+  animation: gg-shimmer 1.4s ease infinite;
+}
+
+@keyframes gg-toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes gg-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Page enter transition used by the AppShell outlet */
+.gg-page-enter {
+  animation: gg-fade-up var(--gg-dur-slow) cubic-bezier(0.3, 0, 0, 1) both;
+}
+
+@keyframes gg-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-skeleton { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
