@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
 } from 'lucide-react';
-import { Brand } from '../../layouts/AppShell';
+import { Brand, MODULES } from '../../layouts/AppShell';
 import { Button, StatusPill, cn } from '../../ui';
 import { detectTier, prefersReducedMotion } from '../building3d/capabilities';
 import { useWaterLiveStore } from '../../stores/waterLiveStore';
@@ -56,6 +56,28 @@ function useFeatureStats() {
     reserve: { value: 'Book', label: 'rooms, halls and courts' },
     twin: { value: '3D', label: 'zones, floors and NILM' },
   };
+}
+
+/** Every module, one click from the top of the home page. */
+function ModuleNav({ onOpen, className }) {
+  return (
+    <nav aria-label="Modules" className={className}>
+      <ul className="flex min-w-max items-center gap-1">
+        {MODULES.map(({ to, label, icon: Icon, accent }) => (
+          <li key={to}>
+            <a
+              href={to}
+              onClick={(e) => { e.preventDefault(); onOpen(to); }}
+              className="group inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#d5e3dc] transition-colors duration-fast hover:bg-white/10 hover:text-white"
+            >
+              <Icon className="size-4 opacity-80 group-hover:opacity-100" style={{ color: accent }} aria-hidden="true" />
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
 }
 
 function Poster({ visible }) {
@@ -188,26 +210,15 @@ export default function LandingPage() {
       <header className="fixed inset-x-0 top-0 z-30 bg-[linear-gradient(180deg,rgb(3_10_8/0.78),rgb(3_10_8/0.35)_70%,transparent)]">
         <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-6 px-5 sm:px-10">
           <Brand />
-          <nav aria-label="Landing sections" className="ml-auto hidden md:block">
-            <ul className="flex items-center gap-1 text-sm font-semibold">
-              {[['#how', 'How it works'], ['#live', 'Live demo']].map(([href, label]) => (
-                <li key={href}>
-                  <a href={href} onClick={(e) => { e.preventDefault(); scrollTo(href); }} className="rounded-md px-3 py-2 text-muted hover:text-fg transition-colors duration-fast">
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <Button size="sm" className="ml-auto md:ml-0" onClick={() => scrollTo('#features')} iconRight={<ArrowRight className="size-4" aria-hidden="true" />}>
-            Modules
-          </Button>
+          <ModuleNav onOpen={enter} className="ml-auto hidden lg:block" />
         </div>
+        {/* Smaller screens: the same modules as a swipeable row under the brand */}
+        <ModuleNav onOpen={enter} className="lg:hidden -mt-1 overflow-x-auto px-5 pb-2 sm:px-10" />
       </header>
 
       <main ref={rootRef} className="relative z-10">
         {/* Hero */}
-        <section aria-labelledby="hero-title" className="relative flex min-h-svh items-center pt-16">
+        <section aria-labelledby="hero-title" className="relative flex min-h-svh items-center pt-28 pb-16 lg:pt-16 lg:pb-0">
           <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
             <div className="max-w-2xl">
               <div data-hero-fade><StatusPill tone="success" pulse>Live at The Light City Penang</StatusPill></div>
@@ -240,7 +251,7 @@ export default function LandingPage() {
             <button
               type="button"
               onClick={() => scrollTo('#problem')}
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-xs font-semibold text-[#bcd0c7] hover:text-white"
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 max-sm:hidden flex flex-col items-center gap-1 text-xs font-semibold text-[#bcd0c7] hover:text-white"
             >
               Scroll to explore
               <ChevronDown className="size-5 animate-bounce" aria-hidden="true" />
