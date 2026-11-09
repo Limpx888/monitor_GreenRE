@@ -32,3 +32,6 @@ __pycache__/
 # Run logs & test artifacts
 runs/
 .pytest_cache/
+
+# Archived reports / uploads written by blob_store.py when Azure Blob is not configured
+backend/data/files/
