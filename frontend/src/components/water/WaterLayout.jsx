@@ -64,7 +64,7 @@ export default function WaterLayout() {
       {/* Top Bar matching Digital Twin and Waste modules */}
       <div className="top-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src="/gogreen-logo.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+          <img src="/gogreen-logo-128.jpg" alt="GoGreen" style={{ height: '38px', width: '38px', borderRadius: '8px', objectFit: 'cover' }} />
           <div>
             <div className="system-title">GoGreen</div>
             <div className="system-subtitle">The Light City Penang · AI Water & Flow Management</div>
