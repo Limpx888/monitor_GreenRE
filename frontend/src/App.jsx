@@ -4,7 +4,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 // Design system (theme store must initialise before first render)
 import './design/theme';
 import { Toaster } from './ui';
-import { FirstVisitGate } from './features/landing/firstVisit';
 
 /*
  * Every route is its own chunk, so the landing page doesn't download the
@@ -12,6 +11,10 @@ import { FirstVisitGate } from './features/landing/firstVisit';
  */
 const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 const DesignSystemPage = lazy(() => import('./pages/DesignSystemPage'));
+
+// Feature modules
+const IndoorEnvironmentPage = lazy(() => import('./pages/IndoorEnvironmentPage'));
+const CarbonPage = lazy(() => import('./pages/CarbonPage'));
 
 // Digital twin
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -54,14 +57,19 @@ export default function App() {
       <Toaster />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          {/* Product landing page: shown once to first-time visitors of `/`, always at /welcome */}
-          <Route path="/welcome" element={<Suspense fallback={<LandingFallback />}><LandingPage /></Suspense>} />
+          {/* Home: the 3D waterfront landing page is the main dashboard; every module is one click away */}
+          <Route path="/" element={<Suspense fallback={<LandingFallback />}><LandingPage /></Suspense>} />
+          <Route path="/welcome" element={<Navigate to="/" replace />} />
 
           {/* Living style guide for the GoGreen design system */}
           <Route path="/design" element={<DesignSystemPage />} />
 
-          {/* Digital twin */}
-          <Route path="/" element={<FirstVisitGate><DashboardPage /></FirstVisitGate>} />
+          {/* Feature modules */}
+          <Route path="/indoor" element={<IndoorEnvironmentPage />} />
+          <Route path="/carbon" element={<CarbonPage />} />
+
+          {/* Digital twin (energy, NILM, zones) */}
+          <Route path="/twin" element={<DashboardPage />} />
           <Route path="/floor/:floorId" element={<FloorDetailPage />} />
           <Route path="/zone/:zoneId" element={<ZoneDetailsPage />} />
           <Route path="/reservations" element={<ReservationPage />} />

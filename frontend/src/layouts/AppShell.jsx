@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Building2, CalendarCheck, Droplets, Menu, Monitor, Moon, Recycle, Sparkles, Sun, X } from 'lucide-react';
+import { Building2, CalendarCheck, Droplets, Leaf, Menu, Monitor, Moon, Recycle, Sun, Wind, X } from 'lucide-react';
 import { useTheme } from '../design/theme';
 import { cn, IconButton } from '../ui';
 
+/** Every module reachable from the home page and the top nav. */
 export const MODULES = [
-  { to: '/', label: 'Digital Twin', icon: Building2, accent: 'var(--gg-energy)', end: true },
-  { to: '/reservations', label: 'Reserve', icon: CalendarCheck, accent: 'var(--gg-reserve)' },
-  { to: '/waste', label: 'Waste', icon: Recycle, accent: 'var(--gg-waste)' },
+  { to: '/indoor', label: 'Indoor', icon: Wind, accent: 'var(--gg-energy)' },
+  { to: '/carbon', label: 'Carbon', icon: Leaf, accent: 'var(--gg-energy)' },
   { to: '/water', label: 'Water', icon: Droplets, accent: 'var(--gg-water)' },
+  { to: '/waste', label: 'Waste', icon: Recycle, accent: 'var(--gg-waste)' },
+  { to: '/reservations', label: 'Reserve', icon: CalendarCheck, accent: 'var(--gg-reserve)' },
+  { to: '/twin', label: 'Digital Twin', icon: Building2, accent: 'var(--gg-energy)' },
 ];
 
 const THEME_META = {
@@ -30,7 +33,7 @@ export function ThemeToggle({ className }) {
 
 export function Brand({ compact = false }) {
   return (
-    <Link to="/" className="flex items-center gap-2.5 rounded-md" aria-label="GoGreen home">
+    <Link to="/" className="flex items-center gap-2.5 rounded-md" aria-label="GoGreen home" title="Back to home">
       <img src="/gogreen-logo-128.jpg" alt="" className="size-9 rounded-md object-cover ring-1 ring-line" />
       {!compact && (
         <span className="leading-tight">
@@ -92,23 +95,17 @@ export default function AppShell({ subnav, fullBleed = false, children }) {
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-4 px-4 sm:px-6">
           <Brand />
 
-          <nav aria-label="Modules" className="ml-4 hidden md:block">
+          <nav aria-label="Modules" className="ml-4 hidden lg:block">
             <ul className="flex items-center gap-1">
               {MODULES.map((m) => <li key={m.to}><NavItem item={m} /></li>)}
             </ul>
           </nav>
 
           <div className="ml-auto flex items-center gap-1">
-            <Link
-              to="/welcome"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-3 h-9 text-sm font-semibold text-muted hover:text-fg hover:bg-surface-2 transition-colors duration-fast"
-            >
-              <Sparkles className="size-4" aria-hidden="true" /> Tour
-            </Link>
             <ThemeToggle />
             <IconButton
               label={menuOpen ? 'Close menu' : 'Open menu'}
-              className="md:hidden"
+              className="lg:hidden"
               aria-expanded={menuOpen}
               aria-controls="gg-mobile-nav"
               onClick={() => setMenuOpen((v) => !v)}
@@ -119,14 +116,9 @@ export default function AppShell({ subnav, fullBleed = false, children }) {
         </div>
 
         {menuOpen && (
-          <nav id="gg-mobile-nav" aria-label="Modules" className="md:hidden border-t border-line px-4 py-3">
+          <nav id="gg-mobile-nav" aria-label="Modules" className="lg:hidden border-t border-line px-4 py-3">
             <ul className="flex flex-col gap-1">
               {MODULES.map((m) => <li key={m.to}><NavItem item={m} onNavigate={() => setMenuOpen(false)} /></li>)}
-              <li>
-                <Link to="/welcome" className="inline-flex items-center gap-2 rounded-md px-3 h-9 text-sm font-semibold text-muted hover:text-fg">
-                  <Sparkles className="size-4" aria-hidden="true" /> Product tour
-                </Link>
-              </li>
             </ul>
           </nav>
         )}
