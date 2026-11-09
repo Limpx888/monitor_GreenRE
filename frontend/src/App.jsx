@@ -15,6 +15,7 @@ const DesignSystemPage = lazy(() => import('./pages/DesignSystemPage'));
 // Feature modules
 const IndoorEnvironmentPage = lazy(() => import('./pages/IndoorEnvironmentPage'));
 const CarbonPage = lazy(() => import('./pages/CarbonPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
 // Digital twin
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -67,6 +68,7 @@ export default function App() {
           {/* Feature modules */}
           <Route path="/indoor" element={<IndoorEnvironmentPage />} />
           <Route path="/carbon" element={<CarbonPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
 
           {/* Digital twin (energy, NILM, zones) */}
           <Route path="/twin" element={<DashboardPage />} />

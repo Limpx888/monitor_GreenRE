@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Building2, CalendarCheck, Droplets, Leaf, Menu, Monitor, Moon, Recycle, Sun, Wind, X } from 'lucide-react';
+import { Building2, CalendarCheck, Droplets, FileBarChart, Leaf, Menu, Monitor, Moon, Recycle, Sun, Wind, X } from 'lucide-react';
 import { useTheme } from '../design/theme';
 import { cn, IconButton } from '../ui';
 
@@ -12,6 +12,7 @@ export const MODULES = [
   { to: '/waste', label: 'Waste', icon: Recycle, accent: 'var(--gg-waste)' },
   { to: '/reservations', label: 'Reserve', icon: CalendarCheck, accent: 'var(--gg-reserve)' },
   { to: '/twin', label: 'Digital Twin', icon: Building2, accent: 'var(--gg-energy)' },
+  { to: '/reports', label: 'Reports', icon: FileBarChart, accent: 'var(--gg-info)' },
 ];
 
 const THEME_META = {

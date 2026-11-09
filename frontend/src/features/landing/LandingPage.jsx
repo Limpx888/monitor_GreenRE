@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
+  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, FileBarChart, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
 } from 'lucide-react';
 import { Brand, MODULES } from '../../layouts/AppShell';
 import { Button, StatusPill, cn } from '../../ui';
@@ -33,6 +33,7 @@ const FEATURES = [
   { id: 'waste', to: '/waste', icon: Recycle, title: 'Waste management', text: 'Camera AI classifies items, guides disposal and tracks diversion.', accent: 'var(--gg-waste)' },
   { id: 'reserve', to: '/reservations', icon: CalendarCheck, title: 'Reserve management', text: 'Space bookings that drive HVAC and lighting schedules.', accent: 'var(--gg-reserve)' },
   { id: 'twin', to: '/twin', icon: Building2, title: 'Digital twin', text: 'Floor-by-floor energy, NILM load disaggregation and zone drill-down.', accent: '#2dd4bf' },
+  { id: 'reports', to: '/reports', icon: FileBarChart, title: 'Reports', text: 'Overall analytics for any period with an AI summary, exported as PDF.', accent: '#38bdf8' },
 ];
 
 /** One live figure per module card, so the home page works as the dashboard. */
@@ -55,6 +56,7 @@ function useFeatureStats() {
     waste: { value: 'AI scan', label: 'camera classification' },
     reserve: { value: 'Book', label: 'rooms, halls and courts' },
     twin: { value: '3D', label: 'zones, floors and NILM' },
+    reports: { value: 'PDF', label: 'AI summary · Azure archive' },
   };
 }
 
