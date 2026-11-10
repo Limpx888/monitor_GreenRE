@@ -14,7 +14,7 @@ export default function FloorDetailPage() {
 
   return (
     <div className="floor-blank-page">
-      <Link to="/twin" className="floor-back-btn" aria-label="Back to the digital twin">
+      <Link to="/digital-twin" className="floor-back-btn" aria-label="Back to the scenario demo hub">
         <ArrowLeft size={22} strokeWidth={2.5} />
       </Link>
       

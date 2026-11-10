@@ -22,23 +22,28 @@ class DataQualityTag(str, Enum):
 
 
 class CanonicalTelemetryRecord(BaseModel):
-    """Universal canonical telemetry envelope with global traceability and DQ metadata."""
+    """Universal canonical telemetry envelope with global traceability and DQ metadata.
     
-    event_id: str = Field(default_factory=lambda: str(uuid4()), description="Globally unique UUID4 for this event")
-    trace_id: str = Field(default_factory=lambda: f"tr-{uuid4().hex[:12]}", description="Distributed correlation trace ID")
+    Strict Enterprise Ingestion Schema:
+    Must explicitly define and validate event_id, trace_id, and asset_id.
+    """
+    
+    event_id: str = Field(..., description="Globally unique UUID/string for this event")
+    trace_id: str = Field(..., description="Distributed correlation trace ID for end-to-end auditability")
+    asset_id: str = Field(..., description="Target asset identifier, e.g. AHU-14A, METER-MAIN, CHILLER-01")
     timestamp: datetime = Field(..., description="Measurement timestamp in UTC")
     
     # Standardized Asset Spatial Topology Associations
     site_code: str = Field(default="SITE-PENANG-01", description="Site identifier")
     building_code: str = Field(default="BLD-TOWER-A", description="Building identifier")
-    floor_code: str = Field(..., description="Floor code, e.g. L14, L8, B2, GF")
+    floor_code: Optional[str] = Field(default="L14", description="Floor code, e.g. L14, L8, B2, GF")
     zone_code: Optional[str] = Field(None, description="Spatial zone identifier, e.g. zone-d")
-    asset_tag: str = Field(..., description="Asset identifier, e.g. AHU-14A, CHILLER-01")
-    point_code: str = Field(..., description="Specific physical/logical point code, e.g. OUTDOOR_AIR_DAMPER")
+    asset_tag: Optional[str] = Field(None, description="Asset tag alias (kept for backwards compatibility)")
+    point_code: str = Field(default="TOTAL_DEMAND", description="Specific physical/logical point code, e.g. OUTDOOR_AIR_DAMPER")
     
     # Measured Value & Engineering Unit
     value: float = Field(..., description="Engineering reading value")
-    unit: str = Field(..., description="Engineering unit, e.g. %, °C, kW, ppm, Hz, m³/h")
+    unit: str = Field(default="kW", description="Engineering unit, e.g. %, °C, kW, ppm, Hz, m³/h")
     
     # Data Quality (DQ) Dimensions
     quality_status: DataQualityTag = Field(default=DataQualityTag.VALID, description="Evaluated DQ tag")
@@ -49,16 +54,38 @@ class CanonicalTelemetryRecord(BaseModel):
 
     @field_validator("event_id")
     def validate_event_id(cls, v: str) -> str:
-        if not v or len(v.strip()) == 0:
+        if not v or len(str(v).strip()) == 0:
             raise ValueError("event_id must not be empty")
-        return v.strip()
+        return str(v).strip()
+
+    @field_validator("trace_id")
+    def validate_trace_id(cls, v: str) -> str:
+        if not v or len(str(v).strip()) == 0:
+            raise ValueError("trace_id must not be empty")
+        return str(v).strip()
+
+    @field_validator("asset_id")
+    def validate_asset_id(cls, v: str) -> str:
+        if not v or len(str(v).strip()) == 0:
+            raise ValueError("asset_id must not be empty")
+        return str(v).strip()
+
+    @model_validator(mode="after")
+    def sync_asset_identifiers_and_verify(self) -> "CanonicalTelemetryRecord":
+        if not self.asset_tag and self.asset_id:
+            self.asset_tag = self.asset_id
+        elif not self.asset_id and self.asset_tag:
+            self.asset_id = self.asset_tag
+        return self
 
     @field_validator("timestamp")
     def ensure_timezone_aware(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             # Assume UTC if naive
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            v = v.replace(tzinfo=timezone.utc)
+        else:
+            v = v.astimezone(timezone.utc)
+        return v
 
 
 class CanonicalBatchIngestRequest(BaseModel):
@@ -71,6 +98,8 @@ class PartialIngestFailure(BaseModel):
     """Detailed failure item reporting index, error code, and reason."""
     index: int
     event_id: Optional[str] = None
+    trace_id: Optional[str] = None
+    asset_id: Optional[str] = None
     asset_tag: Optional[str] = None
     point_code: Optional[str] = None
     code: str

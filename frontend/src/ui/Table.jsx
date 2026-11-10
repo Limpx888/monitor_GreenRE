@@ -8,12 +8,26 @@ import { DataState } from './Feedback';
  * <Table caption="Scan history" columns={cols} rows={rows} rowKey="id" loading={l} error={e} onRetry={reload} />
  */
 export function Table({
-  columns, rows = [], rowKey = 'id', caption, loading, error, onRetry, emptyTitle = 'No records', emptyDescription,
-  onRowClick, dense = false, className,
+  columns, rows, data, rowKey = 'id', caption, loading, error, onRetry, emptyTitle = 'No records', emptyDescription,
+  onRowClick, dense = false, className, children,
 }) {
-  const state = (loading || error || rows.length === 0) && (
+  // If children are passed directly (custom table), render them
+  if (children && !columns) {
+    return (
+      <div className={cn('overflow-x-auto rounded-lg border border-line bg-surface', className)}>
+        <table className="w-full border-collapse text-sm">
+          {children}
+        </table>
+      </div>
+    );
+  }
+
+  const items = rows || data || [];
+  const cols = columns || [];
+
+  const state = (loading || error || items.length === 0) && (
     <div className="h-56">
-      <DataState loading={loading} error={error} empty={!rows.length} onRetry={onRetry} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+      <DataState loading={loading} error={error} empty={!items.length} onRetry={onRetry} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
     </div>
   );
 
@@ -23,7 +37,7 @@ export function Table({
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead className="bg-surface-2">
           <tr>
-            {columns.map((c) => (
+            {cols.map((c) => (
               <th
                 key={c.key}
                 scope="col"
@@ -40,7 +54,7 @@ export function Table({
         </thead>
         {!state && (
           <tbody>
-            {rows.map((row, i) => (
+            {items.map((row, i) => (
               <tr
                 key={typeof rowKey === 'function' ? rowKey(row, i) : row[rowKey] ?? i}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -51,7 +65,7 @@ export function Table({
                   onRowClick && 'cursor-pointer hover:bg-surface-2',
                 )}
               >
-                {columns.map((c) => (
+                {cols.map((c) => (
                   <td
                     key={c.key}
                     className={cn(

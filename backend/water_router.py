@@ -64,7 +64,7 @@ def get_consumption(
     building_name: str, 
     limit: int = Query(100, ge=1, le=5000),
     meter_type: Optional[str] = None,
-    granularity: str = Query("daily", regex="^(hourly|daily|monthly)$")
+    granularity: str = Query("daily", pattern="^(hourly|daily|monthly)$")
 ):
     con = get_db()
     try:

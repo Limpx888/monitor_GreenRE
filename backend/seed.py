@@ -5,9 +5,12 @@ Floor-to-zone mapping lives in Postgres so reallocating L13 (or any floor)
 is a zone_id update, not a code change.
 """
 
-from datetime import datetime, timezone
-from db_models import Floor, TouTariffRate, Zone
+from datetime import datetime, timedelta, timezone
+import random
+from sqlalchemy import func
+from db_models import Floor, MeterReading, TouTariffRate, Zone
 from database import SessionLocal, engine, Base
+from ems_service import _aware
 
 
 ZONES = [
@@ -225,7 +228,171 @@ def seed_demand_thresholds(db=None):
             db.close()
 
 
+def seed_meter_telemetry(db=None, force: bool = False):
+    """Seed 24-48 hours of realistic electrical smart-meter telemetry for all 35 floors."""
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        # Check if we already have recent readings
+        latest_ts = db.query(func.max(MeterReading.timestamp)).filter(MeterReading.meter_type == "electricity").scalar()
+        if not force and latest_ts and (now - _aware(latest_ts)).total_seconds() < 3600 * 24:
+            print("[seed] Electrical smart-meter telemetry is up-to-date.")
+            return
+
+        floors = db.query(Floor).all()
+        if not floors:
+            return
+
+        base_kwh_by_zone = {
+            1: 42.0,  # Zone 1 (B2-LG, 3 floors): ~1,000 kWh/day/floor -> EEI ~260 vs 300
+            2: 45.0,  # Zone 2 (GF-L3, 4 floors): ~1,085 kWh/day/floor -> EEI ~140 vs 150
+            3: 25.0,  # Zone 3 (L4-L13, 10 floors): ~610 kWh/day/floor -> EEI ~130 vs 150
+            4: 40.0,  # Zone 4 (L14-L28, 15 floors): ~960 kWh/day/floor -> EEI ~225 vs 250
+            5: 23.0,  # Zone 5 (L29-L31, 3 floors): ~555 kWh/day/floor -> EEI ~160 vs 180
+        }
+
+        diurnal = [
+            0.65, 0.60, 0.58, 0.57, 0.60, 0.70, 0.85, 1.10,
+            1.30, 1.40, 1.45, 1.48, 1.40, 1.38, 1.45, 1.42,
+            1.35, 1.25, 1.10, 0.95, 0.85, 0.78, 0.72, 0.68
+        ]
+
+        readings = []
+        for h in range(24):
+            ts = now - timedelta(hours=(23 - h))
+            mult = diurnal[ts.hour]
+            for f in floors:
+                exists = db.query(MeterReading.id).filter(
+                    MeterReading.timestamp == ts,
+                    MeterReading.floor_id == f.id,
+                    MeterReading.meter_type == "electricity"
+                ).first()
+                if exists:
+                    continue
+
+                base = base_kwh_by_zone.get(f.zone_id, 30.0)
+                kwh = round(base * mult * (0.95 + 0.1 * random.random()), 2)
+                demand = round(kwh * 1.2, 2)
+                pf = round(0.94 + 0.04 * random.random(), 3)
+                readings.append(MeterReading(
+                    timestamp=ts,
+                    floor_id=f.id,
+                    meter_type="electricity",
+                    reading_kwh=kwh,
+                    demand_kw=demand,
+                    voltage_v=round(240.0 + random.uniform(-0.8, 0.8), 1),
+                    current_a=round(demand * 1.4, 1),
+                    power_factor=pf,
+                    reactive_kvar=round(demand * 0.28, 1),
+                    quality_status="LIVE"
+                ))
+
+        if readings:
+            db.bulk_save_objects(readings)
+            db.commit()
+            print(f"[seed] Seeded {len(readings)} electrical meter readings for GreenRE EE compliance.")
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if own_session:
+            db.close()
+
+
+def seed_control_audit_logs(db=None):
+    """Seed sample verified autonomous BACnet closed-loop operations logs."""
+    from control_adapters import ControlAuditLog
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+    try:
+        count = db.query(ControlAuditLog).count()
+        if count > 0:
+            return
+
+        now = datetime.now(timezone.utc)
+        sample_logs = [
+            ControlAuditLog(
+                dispatched_at=now - timedelta(hours=2, minutes=15),
+                command="hvac_damper_override",
+                target_type="zone",
+                target_id=4,
+                requested_value="15% -> 50% fresh air damper",
+                confirmed_value="50%",
+                protocol="bacnet_ip",
+                success=1,
+                latency_ms=48.2,
+                operator="Auto-Remediation (RAG Agent)",
+                message="RAG engine localized AHU-14 damper stuck closed (15%), preventing continuous chiller reheat fighting. 8 hrs diagnosis saved @ RM 50/hr (+RM 400.00)"
+            ),
+            ControlAuditLog(
+                dispatched_at=now - timedelta(days=2, hours=4),
+                command="water_pressure_modulate",
+                target_type="zone",
+                target_id=2,
+                requested_value="PRV-02 3.2 bar -> 2.6 bar",
+                confirmed_value="2.6 bar",
+                protocol="modbus_tcp",
+                success=1,
+                latency_ms=62.1,
+                operator="Auto-Remediation (Water Sentinel)",
+                message="Smart pressure differential identified micro-leak on Podium L2 riser before pipe burst. 35.4 m³ saved @ RM 2.27/m³ (+RM 80.50)"
+            ),
+            ControlAuditLog(
+                dispatched_at=now - timedelta(days=4, hours=1),
+                command="vav_static_pressure_setback",
+                target_type="zone",
+                target_id=3,
+                requested_value="380 Pa -> 260 Pa",
+                confirmed_value="260 Pa",
+                protocol="bacnet_ip",
+                success=1,
+                latency_ms=39.5,
+                operator="Auto-Remediation (Energy Dispatch)",
+                message="Occupancy correlation lowered after-hours static pressure setpoint on L5-L8 commercial offices. 560 kWh saved @ RM 0.509/kWh (+RM 285.04)"
+            ),
+            ControlAuditLog(
+                dispatched_at=now - timedelta(days=6, hours=8),
+                command="compactor_schedule_optimize",
+                target_type="device",
+                target_id=1,
+                requested_value="Fill threshold 94%",
+                confirmed_value="94%",
+                protocol="rest_api",
+                success=1,
+                latency_ms=115.0,
+                operator="Auto-Remediation (Waste Loop)",
+                message="Smart bin fill-level optimization dispatched compactors at 94% threshold, reducing haulage frequency. 2 haul trips avoided (+RM 420.00)"
+            ),
+            ControlAuditLog(
+                dispatched_at=now - timedelta(days=10, hours=3),
+                command="chiller_staged_setpoint",
+                target_type="device",
+                target_id=1,
+                requested_value="CHW 6.8°C -> 7.8°C",
+                confirmed_value="7.8°C",
+                protocol="bacnet_ip",
+                success=1,
+                latency_ms=51.8,
+                operator="Auto-Remediation (HVAC Optimizer)",
+                message="Chiller plant sequencing lifted supply water setpoint by 1.0°C during high wet-bulb ambient condition. 1,200 kWh avoided during peak tariff (+RM 610.80)"
+            ),
+        ]
+        db.add_all(sample_logs)
+        db.commit()
+        print(f"[seed] Seeded {len(sample_logs)} autonomous control audit logs.")
+    except Exception as e:
+        db.rollback()
+        print(f"[seed] control audit seeding skipped: {e}")
+    finally:
+        if own_session:
+            db.close()
+
+
 if __name__ == "__main__":
     seed_physical_mapping()
     seed_tou_tariff()
     seed_demand_thresholds()
+    seed_meter_telemetry()

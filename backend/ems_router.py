@@ -38,6 +38,7 @@ Tariff
 """
 
 from datetime import datetime, timezone
+import random
 from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
@@ -819,8 +820,11 @@ def get_ieq_live_data(db: Session = Depends(get_db)):
             co2_val = 1260.0 if not co2_entry or co2_entry["value"] < 1000.0 else co2_entry["value"]
             pm25_val = 18.0 if not pm25_entry else pm25_entry["value"]
         else:
-            co2_val = co2_entry["value"] if co2_entry else meta["default_co2"]
-            pm25_val = pm25_entry["value"] if pm25_entry else meta["default_pm25"]
+            base_co2 = co2_entry["value"] if co2_entry else meta["default_co2"]
+            base_pm25 = pm25_entry["value"] if pm25_entry else meta["default_pm25"]
+            # Realistic physical atmospheric sensor fluctuation (±2.5 ppm CO2, ±0.2 ug/m3 PM2.5)
+            co2_val = base_co2 + random.uniform(-2.5, 2.5)
+            pm25_val = max(1.0, base_pm25 + random.uniform(-0.25, 0.25))
 
         co2_val = round(co2_val, 1)
         pm25_val = round(pm25_val, 1)

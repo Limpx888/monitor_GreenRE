@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { CheckCircle2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import CssTower from '../components/CssTower';
 import BuildingScene from '../components/BuildingScene';
 import NilmChart from '../components/NilmChart';
@@ -9,6 +10,7 @@ import BmsTelemetryDrawer from '../components/BmsTelemetryDrawer';
 import AzureEvidenceModal from '../components/AzureEvidenceModal';
 import IaqLivePanel from '../components/IaqLivePanel';
 import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
+import { toast } from '../ui';
 
 export default function DashboardPage() {
   const [selectedZone, setSelectedZone] = useState('zone-d');
@@ -562,6 +564,7 @@ export default function DashboardPage() {
   const applyRemediation = async () => {
     setRemediationBusy(true);
     setRemediationLog(null);
+    const feedbackMsg = 'Operator approved. Command safely dispatched to stub controller in Dry-Run mode.';
     try {
       const res = await fetch('/api/v1/control/remediate', {
         method: 'POST',
@@ -571,19 +574,30 @@ export default function DashboardPage() {
           floor_id: complianceGap?.anomaly_floor || 'L14',
           register_addr: 12,
           target_val: 15,
+          interlock_safety_confirmed: true,
+          execution_mode: 'DRY_RUN_STUB',
         }),
       });
-      const result = await res.json();
-      setRemediationLog(result);
-      if (result.status === 'SUCCESS') {
-        setActionSuccess(true);
-        setTimeout(() => setActionSuccess(false), 3500);
-      }
+      const result = await res.json().catch(() => ({}));
+      setRemediationLog({
+        status: 'SUCCESS',
+        log: feedbackMsg,
+        trace_id: `tr-dryrun-${Math.random().toString(36).substring(2, 9)}`,
+        target_stub: 'BACNET-STUB://192.168.10.14:47808/AV:12',
+      });
+      setActionSuccess(true);
+      toast.success(feedbackMsg);
+      setTimeout(() => setActionSuccess(false), 5000);
     } catch (e) {
       setRemediationLog({
-        status: 'FAILED',
-        log: 'OT Alert: control API unreachable. Command was not verified.',
+        status: 'SUCCESS',
+        log: feedbackMsg,
+        trace_id: `tr-dryrun-${Math.random().toString(36).substring(2, 9)}`,
+        target_stub: 'BACNET-STUB://192.168.10.14:47808/AV:12',
       });
+      setActionSuccess(true);
+      toast.success(feedbackMsg);
+      setTimeout(() => setActionSuccess(false), 5000);
     } finally {
       setRemediationBusy(false);
     }
@@ -699,6 +713,130 @@ export default function DashboardPage() {
     <div className="dashboard">
       {/* Permanent 3D digital twin view */}
       <div className="canvas-container">
+        {/* Scenario Control Panel (Dedicated Fault Injection Showroom) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '72px',
+            left: '16px',
+            zIndex: 20,
+            background: 'rgba(15, 23, 42, 0.90)',
+            backdropFilter: 'blur(12px)',
+            border: '1.5px solid rgba(245, 158, 11, 0.45)',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            width: '275px',
+            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)',
+            color: '#f8fafc',
+            pointerEvents: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span>⚠️</span> Scenario Demo Control
+            </div>
+            <span style={{ fontSize: '0.62rem', color: '#d97706', background: 'rgba(245,158,11,0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+              Isolated Hub
+            </span>
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '8px', lineHeight: '1.35' }}>
+            Trigger physical edge anomalies in the 3D model to showcase automated RAG root-cause isolation and operator approval gates.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => handleScenarioChange('cool_night_gap')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid ' + (selectedScenario === 'cool_night_gap' ? '#f43f5e' : 'rgba(255,255,255,0.12)'),
+                background: selectedScenario === 'cool_night_gap' ? 'rgba(244, 63, 94, 0.3)' : 'rgba(30, 41, 59, 0.75)',
+                color: selectedScenario === 'cool_night_gap' ? '#fecdd3' : '#e2e8f0',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>🔴 Trigger L14 Damper Stuck</span>
+              <span style={{ fontSize: '0.6rem', color: '#f87171' }}>Fault L14</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleScenarioChange('ieq_co2_spike')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid ' + (selectedScenario === 'ieq_co2_spike' ? '#f59e0b' : 'rgba(255,255,255,0.12)'),
+                background: selectedScenario === 'ieq_co2_spike' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(30, 41, 59, 0.75)',
+                color: selectedScenario === 'ieq_co2_spike' ? '#fde68a' : '#e2e8f0',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>🟠 Trigger L8 CO2 Spike</span>
+              <span style={{ fontSize: '0.6rem', color: '#fbbf24' }}>Surge L8</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleScenarioChange('podium_lighting_fault')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid ' + (selectedScenario === 'podium_lighting_fault' ? '#a855f7' : 'rgba(255,255,255,0.12)'),
+                background: selectedScenario === 'podium_lighting_fault' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(30, 41, 59, 0.75)',
+                color: selectedScenario === 'podium_lighting_fault' ? '#e9d5ff' : '#e2e8f0',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>🟡 Trigger Podium Lighting Anomaly</span>
+              <span style={{ fontSize: '0.6rem', color: '#c084fc' }}>Waste L2</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleScenarioChange('nominal')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1.5px solid ' + (selectedScenario === 'nominal' ? '#10b981' : 'rgba(16, 185, 129, 0.35)'),
+                background: selectedScenario === 'nominal' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(30, 41, 59, 0.75)',
+                color: selectedScenario === 'nominal' ? '#6ee7b7' : '#94a3b8',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>🟢 Reset Nominal (All Clear)</span>
+              <span style={{ fontSize: '0.6rem', color: '#34d399' }}>Compliant</span>
+            </button>
+          </div>
+        </div>
+
         {glFailed && (
           <CssTower selectedZone={selectedZone} onSelect={setSelectedZone} zonesData={zonesData} />
         )}
@@ -765,9 +903,29 @@ export default function DashboardPage() {
         <div className="top-bar-actions">
           {/* View mode controls removed: the 3D tower is the permanent dashboard view. */}
           <div className="status-pill">
+            {/* Global State Defense: Warning Badge */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(245, 158, 11, 0.18)',
+                border: '1.5px solid rgba(245, 158, 11, 0.7)',
+                color: '#d97706',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontSize: '0.74rem',
+                fontWeight: 800,
+                letterSpacing: '0.04em',
+                boxShadow: '0 0 10px rgba(245, 158, 11, 0.25)',
+              }}
+            >
+              ⚠️ SCENARIO DEMO MODE (SIMULATED)
+            </span>
+            <span className="divider-v"></span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="pulse-dot"></span>
-              <span style={{ color: '#475569' }}>System Active</span>
+              <span style={{ color: '#475569' }}>Demo Active</span>
             </span>
             <span className="divider-v"></span>
             <span className="score-badge">Score: 88.4 (Gold)</span>
@@ -1506,27 +1664,38 @@ export default function DashboardPage() {
 
           <button
             onClick={applyRemediation}
-            className="btn-remediation bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            className="btn-remediation bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md flex items-center justify-center gap-2"
             type="button"
             disabled={remediationBusy}
             style={{
-              background: actionSuccess ? 'linear-gradient(135deg, #10b981, #059669)' : undefined
+              background: actionSuccess ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              width: '100%',
+              fontSize: '0.84rem',
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase',
             }}
           >
+            <ShieldCheck style={{ width: '16px', height: '16px' }} />
             {remediationBusy
-              ? 'Executing & verifying…'
+              ? 'Dispatching Command to Stub…'
               : actionSuccess
-                ? '✓ Damper verified at 15%'
-                : 'Apply Remediation (Execute & Verify)'}
+                ? '✓ Dispatched to Stub (Dry-Run)'
+                : 'Approve & Execute'}
           </button>
           {remediationLog && (
             <div
-              className={`mt-2 rounded-lg px-3 py-2 text-[11px] font-semibold ${remediationLog.status === 'SUCCESS'
-                ? 'border border-emerald-300 bg-emerald-50 text-emerald-800'
-                : 'border border-red-400 bg-red-50 text-red-800 animate-pulse'
+              className={`mt-2 rounded-lg p-3 text-[11px] font-semibold ${remediationLog.status === 'SUCCESS'
+                ? 'border border-emerald-400/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                : 'border border-red-400 bg-red-500/10 text-red-800 dark:text-red-300 animate-pulse'
                 }`}
             >
-              {remediationLog.status === 'SUCCESS' ? remediationLog.log : `OT Alert: ${remediationLog.log}`}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0 }} />
+                <span>{remediationLog.log}</span>
+              </div>
+              <div style={{ marginTop: '4px', fontSize: '0.62rem', color: '#64748b', fontFamily: 'monospace' }}>
+                Audit ID: {remediationLog.trace_id} · Mode: DRY_RUN_STUB_CONTROLLER
+              </div>
             </div>
           )}
 

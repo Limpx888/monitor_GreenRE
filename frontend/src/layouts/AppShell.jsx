@@ -1,18 +1,35 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Building2, CalendarCheck, Droplets, FileBarChart, Leaf, Menu, Monitor, Moon, Recycle, Sun, Wind, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Building2,
+  CalendarCheck,
+  DollarSign,
+  Droplets,
+  FileBarChart,
+  Leaf,
+  Menu,
+  Monitor,
+  Moon,
+  Recycle,
+  Sun,
+  Wind,
+  X,
+  Zap,
+} from 'lucide-react';
 import { useTheme } from '../design/theme';
 import { cn, IconButton } from '../ui';
 
-/** Every module reachable from the home page and the top nav. */
+/** Every module reachable from the home page and the top nav, sorted by GreenRE importance hierarchy. */
 export const MODULES = [
-  { to: '/indoor', label: 'Indoor', icon: Wind, accent: 'var(--gg-energy)' },
-  { to: '/carbon', label: 'Carbon', icon: Leaf, accent: 'var(--gg-energy)' },
+  { to: '/electric', label: 'Electric', icon: Zap, accent: 'var(--gg-energy)' },
   { to: '/water', label: 'Water', icon: Droplets, accent: 'var(--gg-water)' },
+  { to: '/indoor', label: 'Indoor', icon: Wind, accent: 'var(--gg-energy)' },
+  { to: '/carbon', label: 'Carbon', icon: Leaf, accent: '#a3e635' },
   { to: '/waste', label: 'Waste', icon: Recycle, accent: 'var(--gg-waste)' },
   { to: '/reservations', label: 'Reserve', icon: CalendarCheck, accent: 'var(--gg-reserve)' },
-  { to: '/twin', label: 'Digital Twin', icon: Building2, accent: 'var(--gg-energy)' },
-  { to: '/reports', label: 'Reports', icon: FileBarChart, accent: 'var(--gg-info)' },
+  { to: '/executive', label: 'Executive & Reports', icon: DollarSign, accent: 'var(--gg-energy)' },
+  { to: '/digital-twin', label: 'Digital Twin', icon: Building2, accent: 'var(--gg-warning)' },
 ];
 
 const THEME_META = {
@@ -102,7 +119,31 @@ export default function AppShell({ subnav, fullBleed = false, children }) {
             </ul>
           </nav>
 
-          <div className="ml-auto flex items-center gap-1">
+          {/* Global State Defense: Real vs Simulated Isolation Badge */}
+          <div className="ml-auto flex items-center gap-3">
+            {location.pathname.startsWith('/digital-twin') || location.pathname.startsWith('/twin') ? (
+              <div
+                role="status"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/15 px-3 py-1 text-xs font-extrabold text-amber-500 shadow-sm animate-pulse tracking-wide"
+                title="Scenario Demo Hub: Offline sandbox for fault injection & control loop demonstration"
+              >
+                <span className="size-2 rounded-full bg-amber-500" />
+                ⚠️ SCENARIO DEMO MODE (SIMULATED)
+              </div>
+            ) : (
+              <div
+                role="status"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 shadow-sm tracking-wide"
+                title="Telemetry connected to Azure Event Hubs live production stream"
+              >
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                </span>
+                🟢 LIVE AZURE STREAM (PRODUCTION)
+              </div>
+            )}
+
             <ThemeToggle />
             <IconButton
               label={menuOpen ? 'Close menu' : 'Open menu'}

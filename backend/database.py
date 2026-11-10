@@ -103,7 +103,8 @@ def build_engine():
         except Exception as err:
             last_error = err
 
-    fallback = os.getenv("EMS_SQLITE_FALLBACK", "sqlite:///./ems_local.db")
+    default_sqlite_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "ems_local.db")).replace("\\", "/")
+    fallback = os.getenv("EMS_SQLITE_FALLBACK", f"sqlite:///{default_sqlite_path}")
     print(f"[EMS] Remote Postgres not configured or unreachable; using local SQLite {fallback}")
     if last_error:
         print(f"[EMS] Last Postgres error: {last_error.__class__.__name__}")

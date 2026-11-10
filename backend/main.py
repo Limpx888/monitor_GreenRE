@@ -44,7 +44,7 @@ from rag_engine import BmsRagMapper
 from database import Base, engine, get_db
 from ems_service import build_diagnostic_context  # [NEW] Import Context Builder
 from ems_router import router as ems_router
-from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds
+from seed import seed_physical_mapping, seed_tou_tariff, seed_demand_thresholds, seed_meter_telemetry, seed_control_audit_logs
 from migrate_sqlite import run_migrations
 from azure_services import azure_slice
 import control_adapters  # noqa: F401 — registers ControlAuditLog in Base.metadata
@@ -484,6 +484,8 @@ async def lifespan(app: FastAPI):
         seed_physical_mapping()
         seed_tou_tariff()
         seed_demand_thresholds()
+        seed_meter_telemetry()
+        seed_control_audit_logs()
         print("[EMS] Schema v2.0 ready: zones, floors, meter_readings, tou_tariff_rates, alarms, control_audit_log")
     except Exception as error:
         print(f"[EMS] Database init skipped: {error}")
@@ -502,20 +504,20 @@ async def lifespan(app: FastAPI):
     # Ensure Spatial Hierarchy & DLQ tables exist in database
     Base.metadata.create_all(bind=engine)
 
-    # 2. Simulator Isolation (Strict Demo vs Production Mode - Point 1)
-    # Prohibit automatically starting simulators upon startup unless explicitly enabled
-    auto_start_sim = os.getenv("AUTO_START_SIMULATOR", "false").lower() in {"1", "true", "yes"}
-    if auto_start_sim:
+    # 2. Simulator Isolation (Strict Demo vs Production Mode)
+    # Prohibit automatically starting simulators upon startup unless explicitly in DEMO_MODE
+    # Demonstrates that the system can quietly wait for real Azure Event Hubs data in production.
+    if os.getenv("DEMO_MODE") == "true":
         project_root = os.path.dirname(BASE_DIR)
         streamer_path = os.path.join(project_root, "simulators", "bdg2_streamer.py")
         if os.path.exists(streamer_path):
-            print("🚀 [Controlled-Start] AUTO_START_SIMULATOR=true; launching BDG2 simulator...")
+            print("🚀 [Controlled-Start] DEMO_MODE=true; launching BDG2 simulator...")
             streamer_process = subprocess.Popen([sys.executable, streamer_path, "--interval", "5.0"])
             print(f"✅ BDG2 Streamer running (PID: {streamer_process.pid})")
         else:
             print(f"⚠️ Simulator script not found: {streamer_path}")
     else:
-        print("🔒 [Environment Isolation] AUTO_START_SIMULATOR=false; simulators remain idle on startup.")
+        print("🔒 [Environment Isolation] DEMO_MODE!=true; system quietly waiting for real Azure Event Hubs data.")
 
     # 3. Live water telemetry: MQTT -> DuckDB -> WebSocket (/ws/water-metrics)
     water_live_enabled = os.getenv("WATER_LIVE_ENABLED", "true").lower() in {"1", "true", "yes"}
