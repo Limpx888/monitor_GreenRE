@@ -20,8 +20,9 @@ const RoiDashboardPage = lazy(() => import('./pages/RoiDashboardPage'));
 const CarbonPage = lazy(() => import('./pages/CarbonPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
-// Digital twin
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+// Digital twin — HUD command center. Previous page remains at DashboardPage.jsx
+// and DigitalTwinPage_Backup.jsx.
+const DigitalTwinCommandCenter = lazy(() => import('./pages/DigitalTwinCommandCenter'));
 const FloorDetailPage = lazy(() => import('./pages/FloorDetailPage'));
 const ZoneDetailsPage = lazy(() => import('./pages/ZoneDetailsPage'));
 const ReservationPage = lazy(() => import('./pages/ReservationPage'));
@@ -124,7 +125,7 @@ export default function App() {
           <Route path="/reports" element={<ExecutiveDashboardPage defaultTab="reports" />} />
 
           {/* Dedicated Scenario Demo Hub (3D Model & Fault Injection Showroom) */}
-          <Route path="/digital-twin" element={<DashboardPage />} />
+          <Route path="/digital-twin" element={<DigitalTwinCommandCenter />} />
           <Route path="/twin" element={<Navigate to="/digital-twin" replace />} />
           <Route path="/floor/:floorId" element={<FloorDetailPage />} />
           <Route path="/zone/:zoneId" element={<ZoneDetailsPage />} />

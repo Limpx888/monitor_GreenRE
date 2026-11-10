@@ -12,6 +12,110 @@ import IaqLivePanel from '../components/IaqLivePanel';
 import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
 import { toast } from '../ui';
 
+// ── Three-Stage War Room Scenario Deep Data ─────────────────────────────────
+const SCENARIO_DEEP_DATA = {
+  ieq_co2_spike: {
+    stageLabel: '14:00 | L8 Meeting CO₂ Surge',
+    color: '#ef4444',
+    evidence: {
+      metricTitle: 'GreenRE EQ-3 Compliance Breach',
+      primaryValue: '1,500 ppm (L8)',
+      causeNote: 'Reserve cross-reference: 350 Pax present vs 20 Pax booked. AHU-08 running 100% but VAV-08 stuck at 15% open.',
+      floors: [
+        { floor: 'LG', co2: 420 }, { floor: 'GF', co2: 680 }, { floor: 'L2', co2: 710 },
+        { floor: 'L5', co2: 740 }, { floor: 'L8', co2: 1500 }, { floor: 'L14', co2: 620 }, { floor: 'L30', co2: 580 },
+      ],
+      threshold: 1000,
+      highlightFloor: 'L8',
+    },
+    asset: { id: 'AHU-08-L8-PODIUM', system: 'Air Handling Unit', code: 'ASHRAE-Stuck-Damper-Err-404', health: 8, lastService: '180 days overdue', protocol: 'BACnet/IP' },
+    strategies: [
+      { id: 'strategy_a', label: 'Force VAV-08 Damper Override (65%)', roi: '+RM 400.00', impact: 400, positive: true, desc: 'Restores EQ-3 compliance in 12s via BMS stub' },
+      { id: 'strategy_b', label: 'Auto-dispatch Field Ticket to Tech Tan', roi: '-RM 200.00', impact: -200, positive: false, desc: 'Labor cost: 4 hrs × RM 50/hr' },
+    ],
+  },
+  cool_night_gap: {
+    stageLabel: '03:00 | L14 Hotel Damper Fault + Micro-Leak',
+    color: '#f43f5e',
+    evidence: {
+      metricTitle: 'Overnight Pressure Differential & Pump Dry-Cycling',
+      primaryValue: '35.4 m³ unaccounted flow',
+      causeNote: 'PRV-02 pressure drop detected at L2 riser. Booster pump dry-cycling detected on Electric subsystem. Building in unoccupied off-peak window.',
+      floors: [
+        { floor: 'LG', co2: 390 }, { floor: 'GF', co2: 410 }, { floor: 'L2', co2: 430 },
+        { floor: 'L5', co2: 450 }, { floor: 'L8', co2: 470 }, { floor: 'L14', co2: 820 }, { floor: 'L30', co2: 390 },
+      ],
+      threshold: 1000,
+      highlightFloor: 'L14',
+    },
+    asset: { id: 'PRV-02-RISER-B-L2', system: 'Pressure Reducing Valve', code: 'ASHRAE-Valve-Leak-Err-201', health: 42, lastService: '90 days overdue', protocol: 'Modbus/TCP' },
+    strategies: [
+      { id: 'strategy_a', label: 'Actuate Isolation Valve V-12 on Riser B', roi: '+RM 95.50', impact: 95.5, positive: true, desc: 'Saves 35,000 L · avoids pump burnout' },
+      { id: 'strategy_b', label: 'Schedule Plumbing Inspection at 06:00', roi: '-RM 400.00', impact: -400, positive: false, desc: 'Emergency callout rate' },
+    ],
+  },
+  office_vav_fault: {
+    stageLabel: '14:00 | Peak VAV Reheat Anomaly (L8 Office)',
+    color: '#f59e0b',
+    evidence: {
+      metricTitle: 'Zonal Temperature Control & VAV Efficiency Breach',
+      primaryValue: '590 kW (+40.5% vs baseline)',
+      causeNote: 'VAV-OFFICE-08 terminal damper stuck closed, causing simultaneous chiller overload and electric reheat runaway during business peak at 31.8°C ambient.',
+      floors: [
+        { floor: 'LG', co2: 400 }, { floor: 'GF', co2: 480 }, { floor: 'L2', co2: 520 },
+        { floor: 'L5', co2: 680 }, { floor: 'L8', co2: 920 }, { floor: 'L14', co2: 610 }, { floor: 'L30', co2: 530 },
+      ],
+      threshold: 1000,
+      highlightFloor: 'L8',
+    },
+    asset: { id: 'VAV-OFFICE-08-L8', system: 'Variable Air Volume Terminal', code: 'ASHRAE-VAV-Stuck-Err-305', health: 22, lastService: '120 days overdue', protocol: 'BACnet/IP' },
+    strategies: [
+      { id: 'strategy_a', label: 'Cycle VAV Actuator & Recalibrate Thermostat', roi: '+RM 285.04', impact: 285.04, positive: true, desc: 'Restores zone control · 560 kWh saved @ RM 0.509' },
+      { id: 'strategy_b', label: 'Dispatch HVAC Technician (4 hrs)', roi: '-RM 200.00', impact: -200, positive: false, desc: 'Labor cost + partial downtime' },
+    ],
+  },
+  podium_lighting_fault: {
+    stageLabel: '22:00 | Podium Lighting Override Waste',
+    color: '#a855f7',
+    evidence: {
+      metricTitle: 'Lighting & HVAC Schedule Bypass — After Hours',
+      primaryValue: '450 kW (+80% vs baseline)',
+      causeNote: 'L2 ballroom and concourse lighting contactor manually bypassed on BMS schedule. Building post-closure but all Podium lights at 100%.',
+      floors: [
+        { floor: 'LG', co2: 310 }, { floor: 'GF', co2: 340 }, { floor: 'L2', co2: 380 },
+        { floor: 'L5', co2: 320 }, { floor: 'L8', co2: 290 }, { floor: 'L14', co2: 350 }, { floor: 'L30', co2: 300 },
+      ],
+      threshold: 1000,
+      highlightFloor: 'L2',
+    },
+    asset: { id: 'LIGHTING-PANEL-L2', system: 'Lighting Contactor Panel', code: 'ASHRAE-Schedule-Bypass-Err-102', health: 95, lastService: '14 days (recent)', protocol: 'DALI / KNX' },
+    strategies: [
+      { id: 'strategy_a', label: 'Restore After-Hours BMS Schedule Override', roi: '+RM 420.00', impact: 420, positive: true, desc: '2 haul trips avoided · schedule restored' },
+      { id: 'strategy_b', label: 'Issue Manual Alert to Night Security', roi: '-RM 50.00', impact: -50, positive: false, desc: 'Overtime alert cost' },
+    ],
+  },
+  rainstorm_cooling: {
+    stageLabel: '14:00 | Rainstorm Peak Demand Surge',
+    color: '#0ea5e9',
+    evidence: {
+      metricTitle: 'TNB Maximum Demand Ceiling Breach Risk',
+      primaryValue: '2,087 kW (99.4% of 2,100 kW MD)',
+      causeNote: 'Tropical storm forces all chillers to 100% + all drainage sump pumps at full load. Outdoor humidity 95%, condensation risk maximal.',
+      floors: [
+        { floor: 'LG', co2: 450 }, { floor: 'GF', co2: 510 }, { floor: 'L2', co2: 560 },
+        { floor: 'L5', co2: 620 }, { floor: 'L8', co2: 680 }, { floor: 'L14', co2: 590 }, { floor: 'L30', co2: 520 },
+      ],
+      threshold: 1000,
+      highlightFloor: 'LG',
+    },
+    asset: { id: 'CHILLER-PLANT-MSB-TX1', system: 'Central Chiller Plant', code: 'ASHRAE-DemandSpike-Err-700', health: 72, lastService: '30 days (recent)', protocol: 'BACnet/IP' },
+    strategies: [
+      { id: 'strategy_a', label: 'Sequence Sump Pumps + Float VAV +1.5°C', roi: '+RM 5,900.00', impact: 5900, positive: true, desc: 'Avoids TNB MD penalty surcharge' },
+      { id: 'strategy_b', label: 'Issue Demand Alert to Operations Team', roi: '-RM 200.00', impact: -200, positive: false, desc: 'Manual monitoring labor cost' },
+    ],
+  },
+};
+
 export default function DashboardPage() {
   const [selectedZone, setSelectedZone] = useState('zone-d');
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -33,6 +137,9 @@ export default function DashboardPage() {
   const [azureConnected, setAzureConnected] = useState({ eventHubs: false, aiSearch: false, openai: false, fabric: false });
   const [azureAuditLog, setAzureAuditLog] = useState([]);
   const [azureDiagnosis, setAzureDiagnosis] = useState(null);
+  // War Room: executed strategy ledger entries
+  const [warRoomLedger, setWarRoomLedger] = useState([]);
+  const [resolvedFloors, setResolvedFloors] = useState(new Set());
   // Sustainability experiment data
   const [sustainabilityData, setSustainabilityData] = useState(null);
   const { data: liveConsumption, error: liveError, isLoading: liveLoading } = useZoneConsumption();
@@ -659,6 +766,27 @@ export default function DashboardPage() {
     }
   };
 
+  // War Room: execute a strategy button click
+  const handleExecuteStrategy = useCallback((strat, scenarioKey) => {
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${now.toLocaleTimeString()}`;
+    const data = SCENARIO_DEEP_DATA[scenarioKey];
+    setWarRoomLedger(prev => [
+      {
+        ts,
+        label: strat.label,
+        roi: strat.roi,
+        positive: strat.positive,
+        scenario: data?.stageLabel || scenarioKey,
+        impact: strat.impact,
+      },
+      ...prev.slice(0, 9),
+    ]);
+    if (strat.positive && data?.evidence?.highlightFloor) {
+      setResolvedFloors(prev => new Set([...prev, data.evidence.highlightFloor]));
+    }
+  }, []);
+
   // ⚠️ Added: Floating window data interceptor
   // Forcefully use the dynamic zonesData to override the hardcoded energy and status inside the 3D model
   const activeHoverData = useMemo(() => {
@@ -1127,6 +1255,147 @@ export default function DashboardPage() {
           </>
         ) : (
           <>
+            {/* ══ THREE-STAGE WAR ROOM EVIDENCE PANEL ══ */}
+            {selectedScenario !== 'nominal' && SCENARIO_DEEP_DATA[selectedScenario] && (() => {
+              const sd = SCENARIO_DEEP_DATA[selectedScenario];
+              const ev = sd.evidence;
+              const healthColor = sd.asset.health < 20 ? '#ef4444' : sd.asset.health < 50 ? '#f59e0b' : '#10b981';
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+
+                  {/* ── STAGE HEADER ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '8px', background: `${sd.color}18`, border: `1px solid ${sd.color}40` }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 900, color: sd.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ WAR ROOM ACTIVE</span>
+                    <span style={{ flex: 1, fontSize: '0.62rem', fontWeight: 700, color: '#cbd5e1' }}>{sd.stageLabel}</span>
+                    <button type="button" onClick={() => handleScenarioChange('nominal')} style={{ fontSize: '0.56rem', color: '#94a3b8', background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', borderRadius: '4px', padding: '1px 6px', cursor: 'pointer' }}>✕ Clear</button>
+                  </div>
+
+                  {/* 🔴 STAGE 1: Root Cause Evidence */}
+                  <div style={{ borderRadius: '10px', border: `1px solid ${sd.color}50`, background: 'rgba(15,23,42,0.6)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: `${sd.color}20`, borderBottom: `1px solid ${sd.color}30` }}>
+                      <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: sd.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', color: '#fff', fontWeight: 900, flexShrink: 0 }}>1</span>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: sd.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Root Cause Evidence</span>
+                      <span style={{ marginLeft: 'auto', fontSize: '0.56rem', background: `${sd.color}25`, color: sd.color, padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{ev.metricTitle}</span>
+                    </div>
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: sd.color, lineHeight: 1 }}>{ev.primaryValue}</div>
+                      <div style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '2px', marginBottom: '8px', lineHeight: '1.4' }}>{ev.causeNote}</div>
+                      {/* Compact CO₂ / Floor Chart */}
+                      <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '6px 8px' }}>
+                        <div style={{ fontSize: '0.56rem', color: '#64748b', marginBottom: '5px', fontWeight: 700 }}>CO₂ by Floor · GreenRE EQ-3 limit: {ev.threshold} ppm</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '56px' }}>
+                          {ev.floors.map(f => {
+                            const pct = Math.min((f.co2 / 1600) * 100, 100);
+                            const isHigh = f.co2 >= ev.threshold;
+                            const isHL = f.floor === ev.highlightFloor;
+                            const barColor = isHigh ? '#ef4444' : isHL ? sd.color : '#10b981';
+                            const resolved = resolvedFloors.has(f.floor);
+                            return (
+                              <div key={f.floor} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                <div style={{ fontSize: '0.48rem', color: isHigh && !resolved ? '#fca5a5' : '#94a3b8', fontWeight: 700 }}>{f.co2}</div>
+                                <div style={{ width: '100%', height: `${pct * 0.52}px`, background: resolved ? '#10b981' : barColor, borderRadius: '2px 2px 0 0', transition: 'all 0.5s', opacity: 0.9 }} />
+                                <div style={{ fontSize: '0.48rem', color: '#64748b', fontWeight: 600 }}>{f.floor}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ marginTop: '4px', height: '1px', background: '#ef444430', position: 'relative' }}>
+                          <span style={{ position: 'absolute', right: 0, top: '-8px', fontSize: '0.46rem', color: '#ef4444', fontWeight: 700 }}>── 1,000 ppm limit</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🟡 STAGE 2: Asset Digital Thread */}
+                  <div style={{ borderRadius: '10px', border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'rgba(245,158,11,0.15)', borderBottom: '1px solid rgba(245,158,11,0.25)' }}>
+                      <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#f59e0b', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', color: '#fff', fontWeight: 900, flexShrink: 0 }}>2</span>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Asset Digital Thread</span>
+                      <span style={{ marginLeft: 'auto', fontSize: '0.56rem', background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{sd.asset.protocol}</span>
+                    </div>
+                    <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#f1f5f9', fontFamily: 'monospace' }}>{sd.asset.id}</span>
+                        <span style={{ fontSize: '0.56rem', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{sd.asset.code}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', fontSize: '0.58rem', color: '#94a3b8' }}>
+                        <span>System: <b style={{ color: '#e2e8f0' }}>{sd.asset.system}</b></span>
+                        <span style={{ color: '#475569' }}>·</span>
+                        <span>Last Svc: <b style={{ color: sd.asset.lastService.includes('overdue') ? '#f87171' : '#10b981' }}>{sd.asset.lastService}</b></span>
+                      </div>
+                      {/* Health bar */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', marginBottom: '3px' }}>
+                          <span style={{ color: '#94a3b8', fontWeight: 600 }}>Asset Health</span>
+                          <span style={{ color: healthColor, fontWeight: 800 }}>{sd.asset.health}%</span>
+                        </div>
+                        <div style={{ height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${sd.asset.health}%`, background: healthColor, borderRadius: '3px', transition: 'width 0.8s ease' }} />
+                        </div>
+                        {sd.asset.health < 20 && (
+                          <div style={{ fontSize: '0.54rem', color: '#ef4444', marginTop: '2px', fontWeight: 700 }}>⚠️ Critical wear — immediate inspection required</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🟢 STAGE 3: What-If Strategy Simulation */}
+                  <div style={{ borderRadius: '10px', border: '1px solid rgba(16,185,129,0.4)', background: 'rgba(15,23,42,0.6)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'rgba(16,185,129,0.15)', borderBottom: '1px solid rgba(16,185,129,0.25)' }}>
+                      <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#10b981', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', color: '#fff', fontWeight: 900, flexShrink: 0 }}>3</span>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.06em' }}>What-If Strategy Simulation</span>
+                    </div>
+                    <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {sd.strategies.map(strat => (
+                        <button
+                          key={strat.id}
+                          type="button"
+                          onClick={() => handleExecuteStrategy(strat, selectedScenario)}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                            border: `1px solid ${strat.positive ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.3)'}`,
+                            background: strat.positive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: '0.63rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '2px' }}>{strat.label}</div>
+                            <div style={{ fontSize: '0.56rem', color: '#94a3b8' }}>{strat.desc}</div>
+                          </div>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 900, color: strat.positive ? '#34d399' : '#f87171', whiteSpace: 'nowrap', marginLeft: '8px' }}>{strat.roi}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* War Room ROI Ledger */}
+                  {warRoomLedger.length > 0 && (
+                    <div style={{ borderRadius: '10px', border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(15,23,42,0.6)', overflow: 'hidden' }}>
+                      <div style={{ padding: '5px 10px', background: 'rgba(99,102,241,0.15)', borderBottom: '1px solid rgba(99,102,241,0.2)', fontSize: '0.6rem', fontWeight: 800, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        📋 Autonomous Intervention Ledger · {warRoomLedger.length} Action{warRoomLedger.length > 1 ? 's' : ''}
+                      </div>
+                      <div style={{ maxHeight: '130px', overflowY: 'auto' }}>
+                        {warRoomLedger.map((entry, i) => (
+                          <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '5px 10px', borderBottom: i < warRoomLedger.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', fontSize: '0.6rem' }}>
+                            <span style={{ color: '#64748b', fontFamily: 'monospace', fontSize: '0.54rem', minWidth: '44px' }}>{entry.ts.slice(11, 19)}</span>
+                            <span style={{ flex: 1, color: '#cbd5e1', fontWeight: 600 }}>{entry.label}</span>
+                            <span style={{ fontWeight: 900, color: entry.positive ? '#34d399' : '#f87171', whiteSpace: 'nowrap' }}>{entry.roi}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ padding: '5px 10px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem' }}>
+                        <span style={{ color: '#64748b', fontWeight: 600 }}>Net Financial Impact</span>
+                        <span style={{ fontWeight: 900, color: warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '#34d399' : '#f87171' }}>
+                          {warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '+' : ''}RM {warRoomLedger.reduce((s, e) => s + e.impact, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="glass-panel" style={{ padding: '1.25rem' }}>
               <div className="card-header">
                 <div>
