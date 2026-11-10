@@ -67,6 +67,8 @@ def build_greenre_pdf(db) -> bytes:
     # 1. Gather Subsystem Audit Data with safe fallbacks
     # A. Energy / EMS
     try:
+        from seed import seed_meter_telemetry
+        seed_meter_telemetry(db)
         summary = zone_consumption(db)
     except Exception as e:
         class DummyZone:

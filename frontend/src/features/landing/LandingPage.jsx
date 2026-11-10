@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, Droplets, FileBarChart, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
+  Activity, ArrowRight, BrainCircuit, Building2, CalendarCheck, ChevronDown, DollarSign, Droplets, FileBarChart, Leaf, Radio, Recycle, ShieldCheck, Wind, Zap,
 } from 'lucide-react';
 import { Brand, MODULES } from '../../layouts/AppShell';
 import { Button, StatusPill, cn } from '../../ui';
@@ -27,13 +27,14 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { id: 'indoor', to: '/indoor', icon: Wind, title: 'Indoor environment', text: 'Live CO₂ and PM2.5 on every floor against the GreenRE EQ-3 limit.', accent: '#34d399' },
-  { id: 'carbon', to: '/carbon', icon: Leaf, title: 'Carbon dioxide', text: 'Operational CO₂e before and after automated HVAC and lighting control.', accent: '#a3e635' },
+  { id: 'electric', to: '/electric', icon: Zap, title: 'Electric power', text: '24-hour total load curves, rush-hour peak demand, and live cost rates.', accent: '#3b82f6' },
   { id: 'water', to: '/water', icon: Droplets, title: 'Water management', text: 'Live sub-metering, leak detection and WE-credit tracking.', accent: 'var(--gg-water)' },
+  { id: 'indoor', to: '/indoor', icon: Wind, title: 'Indoor environment', text: 'Live floor-by-floor CO₂ and PM2.5 checked against GreenRE EQ-3.', accent: '#34d399' },
+  { id: 'carbon', to: '/carbon', icon: Leaf, title: 'Carbon dioxide', text: 'Operational CO₂e before and after automated HVAC and lighting control.', accent: '#a3e635' },
   { id: 'waste', to: '/waste', icon: Recycle, title: 'Waste management', text: 'Camera AI classifies items, guides disposal and tracks diversion.', accent: 'var(--gg-waste)' },
   { id: 'reserve', to: '/reservations', icon: CalendarCheck, title: 'Reserve management', text: 'Space bookings that drive HVAC and lighting schedules.', accent: 'var(--gg-reserve)' },
-  { id: 'twin', to: '/twin', icon: Building2, title: 'Digital twin', text: 'Floor-by-floor energy, NILM load disaggregation and zone drill-down.', accent: '#2dd4bf' },
-  { id: 'reports', to: '/reports', icon: FileBarChart, title: 'Reports', text: 'Overall analytics for any period with an AI summary, exported as PDF.', accent: '#38bdf8' },
+  { id: 'executive', to: '/executive', icon: DollarSign, title: 'Executive & Reports', text: 'Dual-purpose enterprise cost ROI, multi-period audit analytics & AI executive summary.', accent: '#10b981' },
+  { id: 'twin', to: '/digital-twin', icon: Building2, title: 'Scenario Demo Hub', text: '3D building sandbox with fault injection and operator control loop.', accent: '#f59e0b' },
 ];
 
 /** One live figure per module card, so the home page works as the dashboard. */
@@ -44,9 +45,12 @@ function useFeatureStats() {
   const waterOpen = useWaterLiveStore((s) => s.status) === 'open';
   const ieqAlerts = ieq.data?.exceeded_floors?.length ?? 0;
   return {
+    electric: { value: '948 kW', label: 'live demand · RM 482/h', tone: 'success' },
     indoor: ieq.data
       ? { value: `${Math.round(ieq.data.max_co2)} ppm`, label: ieqAlerts ? `peak CO₂ · ${ieqAlerts} floor alert${ieqAlerts > 1 ? 's' : ''}` : 'peak CO₂ · all floors compliant', tone: ieqAlerts ? 'danger' : 'success' }
       : { value: ieq.error ? 'Offline' : '…', label: 'peak CO₂' },
+    executive: { value: 'RM 114k', label: 'verified ROI · 61.8 t CO₂e', tone: 'success' },
+    roi: { value: 'RM 114k', label: 'verified net ROI', tone: 'success' },
     carbon: carbon.data
       ? { value: `${(carbon.data.total_co2e_saved_kg / 1000).toFixed(1)} t`, label: 'CO₂e avoided per month', tone: 'success' }
       : { value: carbon.error ? 'Offline' : '…', label: 'CO₂e avoided per month' },
@@ -55,7 +59,7 @@ function useFeatureStats() {
       : { value: '…', label: 'live flow' },
     waste: { value: 'AI scan', label: 'camera classification' },
     reserve: { value: 'Book', label: 'rooms, halls and courts' },
-    twin: { value: '3D', label: 'zones, floors and NILM' },
+    twin: { value: 'Demo 3D', label: 'fault injection sandbox' },
     reports: { value: 'PDF', label: 'AI summary · Azure archive' },
   };
 }

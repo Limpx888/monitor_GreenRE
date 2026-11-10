@@ -13,7 +13,10 @@ const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 const DesignSystemPage = lazy(() => import('./pages/DesignSystemPage'));
 
 // Feature modules
+import ElectricDataCenterPage from './pages/ElectricDataCenterPage';
 const IndoorEnvironmentPage = lazy(() => import('./pages/IndoorEnvironmentPage'));
+const ExecutiveDashboardPage = lazy(() => import('./pages/ExecutiveDashboardPage'));
+const RoiDashboardPage = lazy(() => import('./pages/RoiDashboardPage'));
 const CarbonPage = lazy(() => import('./pages/CarbonPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
@@ -52,12 +55,58 @@ function RouteFallback() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('GoGreen UI ErrorBoundary caught error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-surface flex items-center justify-center p-6 text-fg">
+          <div className="max-w-lg w-full rounded-xl border border-line bg-surface-2 p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-500 font-bold text-lg">
+              <span>⚠️ Application Render Notice</span>
+            </div>
+            <p className="text-sm text-muted">
+              {this.state.error?.message || 'An unexpected error occurred while rendering this page.'}
+            </p>
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-fg font-semibold text-sm cursor-pointer"
+              >
+                Reload View
+              </button>
+              <a
+                href="/"
+                className="px-4 py-2 rounded-lg border border-line bg-surface text-fg font-semibold text-sm hover:bg-surface-2"
+              >
+                Back to Home
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <Toaster />
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
           {/* Home: the 3D waterfront landing page is the main dashboard; every module is one click away */}
           <Route path="/" element={<Suspense fallback={<LandingFallback />}><LandingPage /></Suspense>} />
           <Route path="/welcome" element={<Navigate to="/" replace />} />
@@ -66,12 +115,17 @@ export default function App() {
           <Route path="/design" element={<DesignSystemPage />} />
 
           {/* Feature modules */}
+          <Route path="/electric" element={<ElectricDataCenterPage />} />
           <Route path="/indoor" element={<IndoorEnvironmentPage />} />
           <Route path="/carbon" element={<CarbonPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/executive" element={<ExecutiveDashboardPage />} />
+          <Route path="/financial-esg" element={<Navigate to="/executive" replace />} />
+          <Route path="/roi" element={<Navigate to="/executive" replace />} />
+          <Route path="/reports" element={<ExecutiveDashboardPage defaultTab="reports" />} />
 
-          {/* Digital twin (energy, NILM, zones) */}
-          <Route path="/twin" element={<DashboardPage />} />
+          {/* Dedicated Scenario Demo Hub (3D Model & Fault Injection Showroom) */}
+          <Route path="/digital-twin" element={<DashboardPage />} />
+          <Route path="/twin" element={<Navigate to="/digital-twin" replace />} />
           <Route path="/floor/:floorId" element={<FloorDetailPage />} />
           <Route path="/zone/:zoneId" element={<ZoneDetailsPage />} />
           <Route path="/reservations" element={<ReservationPage />} />
@@ -98,5 +152,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
+  </ErrorBoundary>
   );
 }

@@ -13,7 +13,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -174,12 +174,18 @@ def get_spatial_topology(db: Session = Depends(get_db)):
 
 @router.post("/telemetry/ingest", response_model=CanonicalIngestResponse)
 async def ingest_canonical_telemetry(
-    batch_req: CanonicalBatchIngestRequest,
+    payload: Any = Body(...),
     user: UserClaims = Depends(get_current_user)
 ):
-    """Ingests a batch of CanonicalTelemetryRecords with anti-replay, dedup, DQ tagging, and DLQ."""
+    """Ingests telemetry with anti-replay, schema validation, dedup, DQ tagging, and DLQ.
+    
+    Strict Enterprise Defensive Programming:
+    Validates event_id, trace_id, and asset_id via Pydantic.
+    If timestamps are in the future or payloads are malformed, returns a Partial Success JSON
+    (Partial Failure) with granular failure objects rather than crashing with an unhandled exception.
+    """
     metrics_collector.increment_request("telemetry/ingest")
-    response = await ingest_canonical_batch(batch_req)
+    response = await ingest_canonical_batch(payload)
     
     if response.dlq_persisted_count > 0:
         metrics_collector.record_dlq_drop(response.dlq_persisted_count)

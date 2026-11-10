@@ -38,7 +38,7 @@ def _sync_from_blob() -> int:
         return 0
     from azure.storage.blob import ContainerClient
 
-    client = ContainerClient.from_connection_string(conn_str, CONTAINER)
+    client = ContainerClient.from_connection_string(conn_str, CONTAINER, connection_timeout=2, read_timeout=2, retry_total=0)
     n = 0
     for blob in client.list_blobs():
         if not blob.name.endswith(".parquet"):
@@ -61,12 +61,13 @@ def _local_files() -> bool:
 
 def _open() -> duckdb.DuckDBPyConnection:
     global _source
-    try:
-        downloaded = _sync_from_blob()
-        if downloaded:
-            print(f"[WaterHistory] downloaded {downloaded} Parquet file(s) from Azure Blob '{CONTAINER}'")
-    except Exception as exc:
-        print(f"[WaterHistory] Blob sync failed, using local cache if present: {exc}")
+    if not _local_files():
+        try:
+            downloaded = _sync_from_blob()
+            if downloaded:
+                print(f"[WaterHistory] downloaded {downloaded} Parquet file(s) from Azure Blob '{CONTAINER}'")
+        except Exception as exc:
+            print(f"[WaterHistory] Blob sync failed, using local cache if present: {exc}")
 
     if _local_files():
         con = duckdb.connect()

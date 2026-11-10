@@ -204,6 +204,8 @@ class AzureEventHubService:
             except Exception as e:
                 last_error = str(e)
                 logger.warning(f"[Azure Event Hubs] Ingest attempt {attempt}/3 notice: {e}")
+                if "getaddrinfo failed" in last_error or "SocketError" in last_error:
+                    break
                 time.sleep(0.3 * attempt)
 
         # All retries failed -> buffer into Dead-Letter Queue (DLQ)
