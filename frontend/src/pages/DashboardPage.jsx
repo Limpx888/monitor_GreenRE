@@ -12,6 +12,51 @@ import IaqLivePanel from '../components/IaqLivePanel';
 import { downloadGreenReEvidence, useZoneConsumption } from '../hooks/useZoneConsumption';
 import { toast } from '../ui';
 
+// ── Holographic floor label positions (% from top of canvas) ────────────────
+const FLOOR_LABEL_POSITIONS = {
+  LG:  { top: '78%', left: '52%' },
+  GF:  { top: '72%', left: '52%' },
+  L2:  { top: '65%', left: '56%' },
+  L5:  { top: '55%', left: '56%' },
+  L8:  { top: '44%', left: '56%' },
+  L14: { top: '30%', left: '56%' },
+  L30: { top: '14%', left: '56%' },
+};
+
+// ── Cross-module linkage data per scenario ───────────────────────────────────
+const SCENARIO_CROSS_MODULE = {
+  ieq_co2_spike: [
+    { icon: '📅', module: 'Reserve', label: 'Room L8 Booking', value: '20 Pax booked', alert: false },
+    { icon: '👥', module: 'Reserve', label: 'Live Occupancy Count', value: '350 Pax present', alert: true },
+    { icon: '🌬️', module: 'Electric', label: 'AHU-08 Fan Power', value: '18.4 kW (100%)', alert: false },
+    { icon: '🔒', module: 'BMS', label: 'VAV-08 Damper Position', value: '15% (stuck)', alert: true },
+  ],
+  cool_night_gap: [
+    { icon: '💧', module: 'Water', label: 'L2 Riser Pressure', value: '1.2 bar (↓0.8 bar)', alert: true },
+    { icon: '⚡', module: 'Electric', label: 'Booster Pump Draw', value: '12.3 kW (dry-cycle)', alert: true },
+    { icon: '🕒', module: 'Reserve', label: 'Building Occupancy', value: 'Unoccupied (03:00)', alert: false },
+    { icon: '📊', module: 'Water', label: 'Unaccounted Flow', value: '35.4 m³ / 6 hrs', alert: true },
+  ],
+  office_vav_fault: [
+    { icon: '🌡️', module: 'Indoor', label: 'L8 Zone Setpoint', value: '22°C (target)', alert: false },
+    { icon: '🌡️', module: 'BMS', label: 'L8 Actual Temp', value: '27.3°C (deviated)', alert: true },
+    { icon: '⚡', module: 'Electric', label: 'Reheat Coil Draw', value: '48 kW (runaway)', alert: true },
+    { icon: '🔒', module: 'BMS', label: 'VAV-08 Damper', value: 'Closed (stuck)', alert: true },
+  ],
+  podium_lighting_fault: [
+    { icon: '💡', module: 'Electric', label: 'L2 Lighting Load', value: '185 kW (post-hours)', alert: true },
+    { icon: '📅', module: 'Reserve', label: 'Scheduled Off-Time', value: '22:00 (bypassed)', alert: true },
+    { icon: '👥', module: 'Reserve', label: 'Occupancy Status', value: '0 Pax (closed)', alert: false },
+    { icon: '🔌', module: 'BMS', label: 'Contactor Override', value: 'Manual ON (bypassed)', alert: true },
+  ],
+  rainstorm_cooling: [
+    { icon: '⚡', module: 'Electric', label: 'Total Demand', value: '2,087 kW (99.4% MD)', alert: true },
+    { icon: '🌧️', module: 'Weather', label: 'Outdoor Humidity', value: '95% RH (storm)', alert: true },
+    { icon: '💧', module: 'Water', label: 'Sump Pump Draw', value: '4 × 11 kW = 44 kW', alert: false },
+    { icon: '❄️', module: 'Electric', label: 'Chiller Plant Load', value: '1,420 kW (100%)', alert: true },
+  ],
+};
+
 // ── Three-Stage War Room Scenario Deep Data ─────────────────────────────────
 const SCENARIO_DEEP_DATA = {
   ieq_co2_spike: {
@@ -981,6 +1026,49 @@ export default function DashboardPage() {
             />
           </ErrorBoundaryCanvas>
         </div>
+        {/* ── HOLOGRAPHIC FLOOR ANOMALY LABELS (War Room mode) ── */}
+        {!glFailed && selectedScenario !== 'nominal' && SCENARIO_DEEP_DATA[selectedScenario] && (() => {
+          const sd = SCENARIO_DEEP_DATA[selectedScenario];
+          const hlFloor = sd.evidence.highlightFloor;
+          const pos = FLOOR_LABEL_POSITIONS[hlFloor];
+          const isResolved = resolvedFloors.has(hlFloor);
+          if (!pos) return null;
+          return (
+            <div
+              key={selectedScenario}
+              style={{
+                position: 'absolute',
+                top: pos.top,
+                left: pos.left,
+                zIndex: 25,
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0',
+              }}
+            >
+              {/* Leader line */}
+              <div style={{ width: '28px', height: '1px', background: isResolved ? '#34d399' : sd.color, opacity: 0.8 }} />
+              {/* Label chip */}
+              <div style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: `1.5px solid ${isResolved ? '#34d399' : sd.color}`,
+                background: isResolved ? 'rgba(16,185,129,0.15)' : `${sd.color}20`,
+                backdropFilter: 'blur(8px)',
+                animation: isResolved ? 'none' : 'warRoomPulse 1.8s ease-in-out infinite',
+              }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 900, color: isResolved ? '#34d399' : sd.color, fontFamily: 'monospace', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  [{hlFloor}] {isResolved ? '✅ RESOLVED' : sd.evidence.primaryValue}
+                </div>
+                <div style={{ fontSize: '0.5rem', color: '#94a3b8', marginTop: '1px' }}>
+                  {isResolved ? 'Strategy executed — floor nominal' : sd.evidence.metricTitle}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {!glFailed && hoveredZone && (
           <div
             ref={tooltipRef}
@@ -1303,6 +1391,23 @@ export default function DashboardPage() {
                           <span style={{ position: 'absolute', right: 0, top: '-8px', fontSize: '0.46rem', color: '#ef4444', fontWeight: 700 }}>── 1,000 ppm limit</span>
                         </div>
                       </div>
+                      {/* ── Cross-Module Linkage Cards ── */}
+                      {SCENARIO_CROSS_MODULE[selectedScenario] && (
+                        <div style={{ marginTop: '8px' }}>
+                          <div style={{ fontSize: '0.54rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '5px' }}>⛓ Cross-Module Evidence Linkage</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                            {SCENARIO_CROSS_MODULE[selectedScenario].map((item, idx) => (
+                              <div key={idx} style={{ padding: '5px 7px', borderRadius: '6px', background: item.alert ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.08)', border: `1px solid ${item.alert ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.2)'}` }}>
+                                <div style={{ fontSize: '0.5rem', color: item.alert ? '#f87171' : '#6ee7b7', fontWeight: 700, marginBottom: '1px' }}>
+                                  {item.icon} {item.module}
+                                </div>
+                                <div style={{ fontSize: '0.52rem', color: '#94a3b8', marginBottom: '1px' }}>{item.label}</div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 800, color: item.alert ? '#fca5a5' : '#a7f3d0' }}>{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1968,8 +2073,55 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ── Sustainability Impact Experiment Panel ─────────────────── */}
-          {sustainabilityData && (
+          {/* ── Global Executive ROI Ledger (War Room) or Sustainability Panel (Nominal) ── */}
+          {selectedScenario !== 'nominal' && warRoomLedger.length > 0 ? (
+            <div style={{ marginTop: '0.85rem', borderRadius: '12px', border: '1.5px solid rgba(16,185,129,0.4)', background: 'linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(5,46,22,0.9) 100%)', overflow: 'hidden', boxShadow: '0 2px 20px rgba(16,185,129,0.15)' }}>
+              {/* Header */}
+              <div style={{ padding: '8px 12px', background: 'linear-gradient(90deg, rgba(16,185,129,0.3) 0%, rgba(5,150,105,0.2) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(16,185,129,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.9rem' }}>📋</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 900, color: '#6ee7b7', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Executive ROI Ledger</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.56rem', color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{warRoomLedger.length} Intervention{warRoomLedger.length > 1 ? 's' : ''}</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 900, color: warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '#34d399' : '#f87171' }}>
+                    Net: {warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '+' : ''}RM {warRoomLedger.reduce((s, e) => s + e.impact, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+              {/* Ledger rows */}
+              <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                {warRoomLedger.map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '6px 12px', borderBottom: i < warRoomLedger.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', animation: i === 0 ? 'warRoomSlideIn 0.4s ease' : 'none' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: entry.positive ? '#34d399' : '#f87171', marginTop: '5px', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#e2e8f0', lineHeight: 1.3 }}>{entry.label}</div>
+                      <div style={{ fontSize: '0.54rem', color: '#64748b', marginTop: '1px' }}>{entry.scenario}</div>
+                      <div style={{ fontSize: '0.5rem', color: '#475569', fontFamily: 'monospace' }}>{entry.ts}</div>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 900, color: entry.positive ? '#34d399' : '#f87171', whiteSpace: 'nowrap' }}>{entry.roi}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Summary footer */}
+              <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.5rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Positive ROI</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#34d399' }}>+RM {warRoomLedger.filter(e => e.positive).reduce((s, e) => s + e.impact, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+                <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.5rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Cost Incurred</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#f87171' }}>RM {Math.abs(warRoomLedger.filter(e => !e.positive).reduce((s, e) => s + e.impact, 0)).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.5rem', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Net Impact</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 900, color: warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '#34d399' : '#f87171' }}>
+                    {warRoomLedger.reduce((s, e) => s + e.impact, 0) >= 0 ? '+' : ''}RM {warRoomLedger.reduce((s, e) => s + e.impact, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : sustainabilityData && (
             <div style={{
               marginTop: '0.85rem',
               borderRadius: '12px',

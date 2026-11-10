@@ -10,6 +10,16 @@ html, body, #root {
   background: #f0f4f8;
 }
 
+/* ===== WAR ROOM ANIMATIONS ===== */
+@keyframes warRoomPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  50% { opacity: 0.75; box-shadow: 0 0 12px 4px rgba(239,68,68,0.35); }
+}
+@keyframes warRoomSlideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 /* ===== LAYOUT ===== */
 .dashboard {
   position: relative;
