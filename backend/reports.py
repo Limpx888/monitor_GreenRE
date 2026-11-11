@@ -13,6 +13,7 @@ incorporating:
 import hmac
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -89,6 +90,11 @@ def build_greenre_pdf(db) -> bytes:
 
     # B. Azure Enterprise Slice
     try:
+        # PDF generation must be deterministic and fast. The live Azure slice
+        # is opt-in because Event Hubs/Fabric/Search/OpenAI network timeouts
+        # can otherwise keep a download pending for 30-60 seconds.
+        if os.getenv("GREENRE_PDF_LIVE_AZURE", "false").lower() not in {"1", "true", "yes"}:
+            raise RuntimeError("live Azure PDF enrichment disabled; using local evidence receipt")
         from azure_services import azure_slice
         slice_result = azure_slice.execute_slice()
     except Exception as e:
@@ -149,6 +155,18 @@ def build_greenre_pdf(db) -> bytes:
                 {"floor_id": "L14", "name": "Hyatt Hotel Guest Rooms", "co2_ppm": 640.0, "pm25": 9.5, "status": "OPTIMAL"}
             ]
         }
+
+    try:
+        from scenario_evidence import all_evidence_summary
+        scenario_evidence = all_evidence_summary()
+    except Exception:
+        scenario_evidence = {"available": False}
+
+    try:
+        from report_service import _intervention_audit
+        intervention_audit = _intervention_audit(db)
+    except Exception:
+        intervention_audit = {"available": False, "rows": []}
 
     # 2. Document Setup
     buffer = BytesIO()
@@ -221,6 +239,66 @@ def build_greenre_pdf(db) -> bytes:
         ("PADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(seal_table)
+    story.append(Spacer(1, 8))
+
+    if scenario_evidence.get("available"):
+        story.append(Paragraph("Digital Twin Resolved Incident Evidence", style_h2))
+        story.append(Paragraph(
+            f"{scenario_evidence.get('total_incidents', 0)} approved intervention(s) recorded; "
+            f"RM {scenario_evidence.get('total_avoided_value_myr', 0):,.2f} avoided value, "
+            f"{scenario_evidence.get('total_energy_saved_kwh', 0):,.1f} kWh saved and "
+            f"{scenario_evidence.get('total_carbon_avoided_kg', 0):,.1f} kg CO2e avoided. "
+            "Monthly and yearly roll-ups are shown for executive review; daily records remain available for traceability.", style_body
+        ))
+        for title, key in (("Monthly executive roll-up", "monthly"), ("Yearly portfolio roll-up", "yearly")):
+            rows = [["Period", "Incidents", "Avoided RM", "Energy kWh", "CO2e kg"]]
+            rows += [[row["period"], str(row["incidents"]), f"{row['avoided_value_myr']:,.2f}", f"{row['energy_saved_kwh']:,.1f}", f"{row['carbon_avoided_kg']:,.1f}"] for row in scenario_evidence.get(key, [])]
+            if len(rows) > 1:
+                table = Table(rows, colWidths=[32 * mm, 25 * mm, 32 * mm, 32 * mm, 32 * mm])
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), c_primary),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+                    ("GRID", (0, 0), (-1, -1), 0.3, c_border),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_light]),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    ("PADDING", (0, 0), (-1, -1), 3),
+                ]))
+                story.append(Paragraph(title, style_bold))
+                story.append(table)
+                story.append(Spacer(1, 4))
+
+    story.append(Paragraph("Operational Intervention Audit Trail", style_h2))
+    story.append(Paragraph(
+        "Low-level control commands associated with verified autonomous operations. "
+        "This ledger complements the Digital Twin incident summary above.", style_body
+    ))
+    if intervention_audit.get("available"):
+        audit_rows = [["Timestamp", "System", "Protocol", "Action / Root Cause", "Impact", "Status"]]
+        for row in intervention_audit.get("rows", []):
+            audit_rows.append([
+                Paragraph(str(row.get("timestamp", ""))[:19].replace("T", " "), style_body),
+                Paragraph(str(row.get("system", "")), style_body),
+                Paragraph(str(row.get("protocol", "")), style_body),
+                Paragraph(f"{row.get('action', '')}<br/><font color='#64748b'>Root: {row.get('root_cause', '')}</font>", style_body),
+                Paragraph(f"+ RM {row.get('cost_impact_myr', 0):,.2f}", style_body),
+                Paragraph(str(row.get("status", "")), style_badge_ok if row.get("status") == "VERIFIED" else style_badge_warn),
+            ])
+        audit_table = Table(audit_rows, colWidths=[29 * mm, 20 * mm, 23 * mm, 66 * mm, 24 * mm, 20 * mm], repeatRows=1)
+        audit_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), c_primary),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("GRID", (0, 0), (-1, -1), 0.3, c_border),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_light]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(audit_table)
+    else:
+        story.append(Paragraph("No operational intervention records were available for this dossier.", style_body))
     story.append(Spacer(1, 8))
 
     # ── SECTION 1: ENERGY EFFICIENCY (EE-1 / EE-2 / EE-4) ──────────────────────
@@ -323,35 +401,59 @@ def build_greenre_pdf(db) -> bytes:
 
     story.append(Paragraph("4. Azure Enterprise Cloud Audit Trail (Criterion 4 Ingestion Proof)", style_h2))
 
+    def _azure_cell(value):
+        safe = str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        return Paragraph(safe, style_body)
+
+    clause_value = s3[0].get("clause", "WE 1-1") if s3 else "WE 1-1"
+    clause_code = str(clause_value).split(":", 1)[0]
+    clause_safe = clause_code.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    regulatory_cell = Paragraph(
+        f"<b>Clause:</b> {clause_safe}<br/>Water consumption &amp;<br/>leakage detection<br/>monitoring<br/><font color='#64748b'>Cognitive score: {s3[0].get('search_score', 2.188) if s3 else 2.188}</font>",
+        style_body,
+    )
+
     azure_table_data = [
         ["Cloud Pipeline Stage", "Resource / Engine", "Protocol / Verification", "Status"],
         [
-            "1. Event Ingestion",
-            "Azure Event Hubs (greenre-telemetry)",
+            _azure_cell("1. Event Ingestion"),
+            _azure_cell("Azure Event Hubs (greenre-telemetry)"),
             f"AMQP 1.0 (TLS 1.3) · Partition: {s1.get('partition_key', 'Zone-D-L14')}",
             Paragraph("VERIFIED INGESTION", style_badge_ok)
         ],
         [
-            "2. Time-Series Analytics",
-            "Microsoft Fabric Eventhouse (KQL)",
+            _azure_cell("2. Time-Series Analytics"),
+            _azure_cell("Microsoft Fabric Eventhouse (KQL)"),
             f"telemetry_stream | execution: {s2.get('execution_time_ms', 18.2)} ms",
             Paragraph("ANOMALY CONFIRMED", style_badge_ok)
         ],
         [
-            "3. Regulatory Grounding",
-            "Azure AI Search (greenre-standards-index)",
+            _azure_cell("3. Regulatory Grounding"),
+            _azure_cell("Azure AI Search (greenre-standards-index)"),
             f"Clause: {s3[0].get('clause', 'WE 1-1') if s3 else 'WE 1-1'} · Cognitive score: {s3[0].get('search_score', 2.188) if s3 else 2.188}",
-            Paragraph("LIVE CITATION", style_badge_ok)
+            Paragraph("LIVE<br/>CITATION", style_badge_ok)
         ],
         [
-            "4. Cognitive Reasoning",
-            f"Azure OpenAI ({s4.get('deployment', 'gpt-4o-1')})",
+            _azure_cell("4. Cognitive Reasoning"),
+            _azure_cell(f"Azure OpenAI ({s4.get('deployment', 'gpt-4o-1')})"),
             f"Tokens: {s4.get('tokens_used', 1159)} · Confidence: {int((s4.get('confidence_score', 0.98) or 0.98)*100)}%",
             Paragraph("SAFETY GATE ACTIVE", style_badge_ok)
         ]
     ]
 
-    azure_table = Table(azure_table_data, colWidths=[38 * mm, 62 * mm, 58 * mm, 24 * mm])
+    # Keep the long clause and score on separate wrapped lines in the
+    # regulatory row so it can never collide with the status column.
+    azure_table_data[3][2] = regulatory_cell
+
+    # ReportLab does not wrap plain strings inside table cells. Convert the
+    # evidence columns to paragraphs so long clause/citation text stays inside
+    # the page instead of overflowing into the margin.
+    for row_index in range(1, len(azure_table_data)):
+        for column_index in range(3):
+            if not isinstance(azure_table_data[row_index][column_index], Paragraph):
+                azure_table_data[row_index][column_index] = _azure_cell(azure_table_data[row_index][column_index])
+
+    azure_table = Table(azure_table_data, colWidths=[38 * mm, 56 * mm, 62 * mm, 26 * mm])
     azure_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), c_azure),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),

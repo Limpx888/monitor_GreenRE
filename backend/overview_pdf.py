@@ -159,6 +159,50 @@ def build_overview_pdf(r: dict) -> bytes:
     t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BRAND_SOFT), ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#a7f3d0")), ("PADDING", (0, 0), (-1, -1), 8)]))
     s.append(t)
 
+    # Digital Twin closed-loop evidence. Monthly and yearly are the executive
+    # views; daily rows remain available as operational traceability.
+    evidence = r.get("scenario_evidence") or {}
+    if evidence.get("available"):
+        s.append(Paragraph("Resolved incident evidence", H2))
+        s.append(Paragraph(
+            f"{evidence.get('total_incidents', 0)} Digital Twin intervention(s) resolved in this reporting period; "
+            f"RM {_fmt(evidence.get('total_avoided_value_myr'))} avoided value, "
+            f"{_fmt(evidence.get('total_energy_saved_kwh'), 1)} kWh saved and "
+            f"{_fmt(evidence.get('total_carbon_avoided_kg'), 1)} kg CO2e avoided.", BODY
+        ))
+        for title, key in (("Monthly executive roll-up", "monthly"), ("Yearly portfolio roll-up", "yearly")):
+            rows = [[row["period"], row["incidents"], _fmt(row["avoided_value_myr"], 2), _fmt(row["energy_saved_kwh"], 1), _fmt(row["carbon_avoided_kg"], 1)] for row in evidence.get(key, [])]
+            if rows:
+                s.append(Spacer(1, 4))
+                s.append(Paragraph(title, SMALL))
+                s.append(_table(["Period", "Incidents", "Avoided RM", "Energy kWh", "CO2e kg"], rows, [35 * mm, 25 * mm, 32 * mm, 32 * mm, 32 * mm]))
+
+    audit = r.get("intervention_audit") or {}
+    s.append(Paragraph("Operational Intervention Audit Trail", H2))
+    s.append(Paragraph(
+        "Detailed timestamp, protocol, command and verification records for autonomous control interventions.", BODY
+    ))
+    if audit.get("available"):
+        audit_rows = []
+        for row in audit.get("rows", []):
+            action = escape(str(row.get("action", "")))
+            root = escape(str(row.get("root_cause", "")))
+            audit_rows.append([
+                Paragraph(escape(str(row.get("timestamp", ""))[:19].replace("T", " ")), SMALL),
+                Paragraph(escape(str(row.get("system", ""))), SMALL),
+                Paragraph(escape(str(row.get("protocol", ""))), SMALL),
+                Paragraph(f"{action}<br/><font color='#52625b'>Root: {root}</font>", SMALL),
+                Paragraph(f"RM {_fmt(row.get('cost_impact_myr'), 2)}", SMALL),
+                Paragraph(escape(str(row.get("status", ""))), SMALL),
+            ])
+        s.append(_table(
+            ["Timestamp", "System", "Protocol", "Action / Root Cause", "Impact", "Status"],
+            audit_rows,
+            [29 * mm, 20 * mm, 23 * mm, 66 * mm, 24 * mm, 20 * mm],
+        ))
+    else:
+        s.append(Paragraph("No operational intervention records were available for this period.", SMALL))
+
     # Energy
     s.append(Paragraph("1. Energy and carbon", H2))
     if e.get("available"):
