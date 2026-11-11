@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from 'recharts';
+import { ChartFx, DonutActiveShape, GlassTooltip, PillLegend, fxAxis, fxGrid } from '../ui';
 import { waterApi } from '../api/waterApi';
 import { useWaterLiveStore } from '../stores/waterLiveStore';
 
@@ -21,6 +22,16 @@ const METER_LABELS = {
   irrigation: 'Landscape Irrigation',
   hot_water: 'Domestic Hot Water',
   steam: 'Boiler Steam System',
+};
+
+// Chart series: largest flows drawn first so the smaller ones stay visible on top
+const SERIES_ORDER = ['general_water', 'chilled_water', 'hot_water', 'steam', 'irrigation'];
+const SERIES_NAMES = {
+  general_water: 'General Water',
+  chilled_water: 'Chilled / Cooling',
+  hot_water: 'Hot Water',
+  steam: 'Steam',
+  irrigation: 'Irrigation',
 };
 
 const EMPTY_TOTALS = { general_water: 0, chilled_water: 0, irrigation: 0, hot_water: 0, steam: 0 };
@@ -374,7 +385,7 @@ export default function WaterDashboardPage() {
             )}
           </div>
 
-          <div style={{ height: '320px', width: '100%' }}>
+          <div style={{ height: '300px', width: '100%' }}>
             {isLive && chartData.length === 0 ? (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--gg-subtle)', gap: '8px', textAlign: 'center' }}>
                 {liveStatus === 'open' ? (
@@ -413,50 +424,45 @@ export default function WaterDashboardPage() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorGeneral" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={METER_COLORS.general_water} stopOpacity={0.7} />
-                      <stop offset="95%" stopColor={METER_COLORS.general_water} stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="colorChilled" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={METER_COLORS.chilled_water} stopOpacity={0.7} />
-                      <stop offset="95%" stopColor={METER_COLORS.chilled_water} stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="colorIrrigation" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={METER_COLORS.irrigation} stopOpacity={0.7} />
-                      <stop offset="95%" stopColor={METER_COLORS.irrigation} stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
+                <AreaChart data={chartData} margin={{ top: 14, right: 12, left: 0, bottom: 0 }}>
+                  <ChartFx colors={METER_COLORS} prefix="wts" />
+                  <CartesianGrid {...fxGrid} />
                   <XAxis
                     dataKey="timestamp"
-                    stroke="var(--gg-subtle)"
-                    fontSize={11}
-                    tickLine={false}
+                    {...fxAxis}
                     tickFormatter={isLive ? formatBucketTick : undefined}
-                    minTickGap={24}
+                    minTickGap={28}
+                    dy={6}
                   />
-                  <YAxis stroke="var(--gg-subtle)" fontSize={11} tickLine={false} tickFormatter={isLive ? (v) => v.toFixed(3) : undefined} />
+                  <YAxis {...fxAxis} width={52} tickFormatter={isLive ? (v) => v.toFixed(2) : (v) => (v >= 1e3 ? `${(v / 1e3).toFixed(0)}k` : v)} />
                   <Tooltip
-                    contentStyle={{
-                      background: 'var(--gg-surface)',
-                      borderRadius: '10px',
-                      border: '1px solid var(--gg-line)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      fontSize: '12px',
-                    }}
+                    content={<GlassTooltip unit="m³" digits={isLive ? 3 : 1} showTotal labelFormatter={isLive ? formatBucketTick : undefined} />}
+                    cursor={{ stroke: 'var(--gg-line-strong)', strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
-                  <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
-                  <Area type="monotone" dataKey="general_water" name="General Water" stroke={METER_COLORS.general_water} fillOpacity={1} fill="url(#colorGeneral)" isAnimationActive={!isLive} />
-                  <Area type="monotone" dataKey="chilled_water" name="Chilled / Cooling" stroke={METER_COLORS.chilled_water} fillOpacity={1} fill="url(#colorChilled)" isAnimationActive={!isLive} />
-                  <Area type="monotone" dataKey="irrigation" name="Irrigation" stroke={METER_COLORS.irrigation} fillOpacity={1} fill="url(#colorIrrigation)" isAnimationActive={!isLive} />
-                  <Area type="monotone" dataKey="hot_water" name="Hot Water" stroke={METER_COLORS.hot_water} fill={METER_COLORS.hot_water} fillOpacity={0.2} isAnimationActive={!isLive} />
-                  <Area type="monotone" dataKey="steam" name="Steam" stroke={METER_COLORS.steam} fill={METER_COLORS.steam} fillOpacity={0.2} isAnimationActive={!isLive} />
+                  {SERIES_ORDER.map((key) => (
+                    <Area
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      name={SERIES_NAMES[key]}
+                      stroke={METER_COLORS[key]}
+                      strokeWidth={2.25}
+                      fill={`url(#wts-area-${key})`}
+                      fillOpacity={1}
+                      filter="url(#wts-glow)"
+                      dot={false}
+                      activeDot={{ r: 5, strokeWidth: 3, stroke: 'var(--gg-surface)', fill: METER_COLORS[key] }}
+                      isAnimationActive={!isLive}
+                      animationDuration={900}
+                    />
+                  ))}
                 </AreaChart>
               </ResponsiveContainer>
             )}
           </div>
+          {chartData.length > 0 && (
+            <PillLegend items={SERIES_ORDER.map((key) => ({ key, label: SERIES_NAMES[key], color: METER_COLORS[key] }))} />
+          )}
         </div>
 
         {/* Water Distribution Donut Chart */}
@@ -468,39 +474,56 @@ export default function WaterDashboardPage() {
             {isLive ? 'Live share of volume consumed by sub-system (rolling 24 h)' : 'Proportion of fluid load by sub-system'}
           </p>
 
-          <div style={{ height: '220px', width: '100%' }}>
+          <div style={{ position: 'relative', height: '230px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
+                <ChartFx colors={METER_COLORS} prefix="wpie" />
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={55}
-                  outerRadius={85}
-                  paddingAngle={4}
+                  innerRadius={68}
+                  outerRadius={96}
+                  paddingAngle={3}
+                  cornerRadius={7}
+                  stroke="none"
                   dataKey="value"
+                  activeShape={DonutActiveShape}
                   isAnimationActive={!isLive}
+                  animationDuration={900}
                 >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={METER_COLORS[entry.meter_type] || 'var(--gg-subtle)'} />
+                  {pieData.map((entry) => (
+                    <Cell key={entry.meter_type} fill={`url(#wpie-slice-${entry.meter_type})`} />
                   ))}
                 </Pie>
-                <Tooltip
-                  formatter={(val) => [`${val} m³`, 'Volume']}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
+                <Tooltip content={<GlassTooltip unit="m³" digits={isLive ? 3 : 1} />} />
               </PieChart>
             </ResponsiveContainer>
+            {/* Centre label: total volume for the window */}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gg-subtle)' }}>
+                {isLive ? 'Last 24 h' : 'Total'}
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.45rem', fontWeight: 800, color: 'var(--gg-fg)', lineHeight: 1.2 }}>
+                {windowVolume.toLocaleString(undefined, { maximumFractionDigits: windowVolume < 100 ? 2 : 0 })}
+              </span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--gg-muted)' }}>m³</span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
             {pieData.map((item) => (
-              <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: METER_COLORS[item.meter_type] }} />
-                  <span style={{ color: 'var(--gg-muted)', fontWeight: 600 }}>{item.name}</span>
-                </span>
-                <span style={{ fontWeight: 800, color: 'var(--gg-fg)' }}>{item.percent}%</span>
+              <div key={item.name}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', marginBottom: '4px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: METER_COLORS[item.meter_type], boxShadow: `0 0 8px ${METER_COLORS[item.meter_type]}` }} />
+                    <span style={{ color: 'var(--gg-muted)', fontWeight: 600 }}>{item.name}</span>
+                  </span>
+                  <span style={{ fontWeight: 800, color: 'var(--gg-fg)', fontFamily: 'var(--font-mono)' }}>{item.percent}%</span>
+                </div>
+                <div style={{ height: '5px', borderRadius: '999px', background: 'var(--gg-surface-2)', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.max(Number(item.percent), 1.5)}%`, height: '100%', borderRadius: '999px', background: `linear-gradient(90deg, ${METER_COLORS[item.meter_type]}66, ${METER_COLORS[item.meter_type]})`, transition: 'width 600ms cubic-bezier(0.2,0,0,1)' }} />
+                </div>
               </div>
             ))}
           </div>

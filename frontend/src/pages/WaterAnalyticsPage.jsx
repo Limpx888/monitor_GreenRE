@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
+import { ChartFx, GlassTooltip, fxAxis, fxGrid } from '../ui';
+
+// One colour per bar: a cool blue → teal → green ramp for building typologies
+const SPACE_COLORS = { s0: '#0ea5e9', s1: '#06b6d4', s2: '#14b8a6', s3: '#10b981', s4: '#22c55e', s5: '#84cc16', s6: '#38bdf8', s7: '#2dd4bf' };
+const compact = (v) => (v >= 1e9 ? `${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}k` : `${v}`);
 import { waterApi } from '../api/waterApi';
 
 const METER_COLORS = {
@@ -221,15 +225,21 @@ export default function WaterAnalyticsPage() {
 
           <div style={{ height: '320px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={spaceData.slice(0, 8)} margin={{ top: 10, right: 10, left: 20, bottom: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
-                <XAxis dataKey="name" stroke="var(--gg-subtle)" fontSize={11} angle={-20} textAnchor="end" />
-                <YAxis stroke="var(--gg-subtle)" fontSize={11} tickFormatter={(val) => val >= 1e9 ? `${(val / 1e9).toFixed(0)}B` : val >= 1e6 ? `${(val / 1e6).toFixed(0)}M` : val} />
+              <BarChart data={spaceData.slice(0, 8)} margin={{ top: 24, right: 10, left: 4, bottom: 24 }} barCategoryGap="22%">
+                <ChartFx colors={SPACE_COLORS} prefix="wsp" />
+                <CartesianGrid {...fxGrid} />
+                <XAxis dataKey="name" {...fxAxis} angle={-20} textAnchor="end" dy={4} interval={0} />
+                <YAxis {...fxAxis} width={48} tickFormatter={compact} />
                 <Tooltip
-                  formatter={(val) => [`${Number(val).toLocaleString()} m³`, 'Total Volume']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--gg-line)' }}
+                  content={<GlassTooltip unit="m³" digits={0} nameOverride="Total volume" />}
+                  cursor={{ fill: 'var(--gg-surface-2)', radius: 10 }}
                 />
-                <Bar dataKey="volume" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="volume" radius={[10, 10, 4, 4]} background={{ fill: 'var(--gg-surface-2)', radius: 10 }} animationDuration={900}>
+                  {spaceData.slice(0, 8).map((row, i) => (
+                    <Cell key={row.name} fill={`url(#wsp-bar-s${i % 8})`} />
+                  ))}
+                  <LabelList dataKey="volume" position="top" formatter={compact} style={{ fill: 'var(--gg-muted)', fontSize: 11, fontWeight: 700 }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -246,15 +256,21 @@ export default function WaterAnalyticsPage() {
 
           <div style={{ height: '320px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={meterData} layout="vertical" margin={{ top: 10, right: 20, left: 40, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
-                <XAxis type="number" stroke="var(--gg-subtle)" fontSize={11} />
-                <YAxis dataKey="name" type="category" stroke="var(--gg-subtle)" fontSize={10} width={90} />
+              <BarChart data={meterData} layout="vertical" margin={{ top: 10, right: 44, left: 8, bottom: 10 }} barCategoryGap="26%">
+                <ChartFx colors={METER_COLORS} prefix="wmt" />
+                <CartesianGrid {...fxGrid} horizontal={false} vertical />
+                <XAxis type="number" {...fxAxis} />
+                <YAxis dataKey="name" type="category" {...fxAxis} width={110} />
                 <Tooltip
-                  formatter={(val) => [`${val} Buildings`, 'Coverage']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--gg-line)' }}
+                  content={<GlassTooltip unit="buildings" digits={0} nameOverride="Coverage" />}
+                  cursor={{ fill: 'var(--gg-surface-2)', radius: 10 }}
                 />
-                <Bar dataKey="buildings" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="buildings" radius={[4, 10, 10, 4]} background={{ fill: 'var(--gg-surface-2)', radius: 10 }} animationDuration={900}>
+                  {meterData.map((row) => (
+                    <Cell key={row.meter_type} fill={`url(#wmt-hbar-${row.meter_type})`} />
+                  ))}
+                  <LabelList dataKey="buildings" position="right" style={{ fill: 'var(--gg-fg)', fontSize: 12, fontWeight: 800 }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

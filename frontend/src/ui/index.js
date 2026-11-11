@@ -12,3 +12,4 @@ export { Toaster, toast } from './Toast';
 export { Spinner, Skeleton, LoadingState, EmptyState, ErrorState, DataState } from './Feedback';
 export { PageHeader } from './PageHeader';
 export { chart, SERIES, PALETTE } from './chartTheme';
+export { ChartFx, GlassTooltip, DonutActiveShape, PillLegend, fxAxis, fxGrid } from './chartFx';
