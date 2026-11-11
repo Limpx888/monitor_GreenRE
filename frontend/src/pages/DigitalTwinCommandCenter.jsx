@@ -263,7 +263,7 @@ function Sparkline({ points, stroke }) {
 function Meter({ label, right, barClass }) {
   return (
     <div>
-      <div className="mb-1 flex justify-between text-[10px] text-gray-500">
+      <div className="mb-1 flex justify-between text-xs text-gray-500">
         <span>{label}</span>
         <span>{right}</span>
       </div>
@@ -313,7 +313,7 @@ function DockCard({ id, scenario, open, onToggle, icon, title, metric, metricCla
 function EvidenceChart({ title, rows, unit, limit, highlight }) {
   return (
     <div>
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{title}</p>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</p>
       <div className="h-36">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
@@ -353,11 +353,11 @@ function SignalReadout({ label, value, tone = 'cyan', detail }) {
   };
   return (
     <div className={`rounded border px-2 py-1.5 ${tones[tone]}`}>
-      <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wide opacity-70">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide opacity-70">
         <span>{label}</span><Activity className="size-3" />
       </div>
       <div className="mt-0.5 font-mono text-sm font-bold">{value}</div>
-      {detail && <div className="mt-0.5 text-[9px] opacity-70">{detail}</div>}
+      {detail && <div className="mt-0.5 text-[11px] opacity-70">{detail}</div>}
     </div>
   );
 }
@@ -372,22 +372,22 @@ function TelemetryMatrix({ rows }) {
   return (
     <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/80 p-2">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">Multi-source telemetry matrix</span>
-        <span className="font-mono text-[9px] text-slate-500">3 SIGNAL DOMAINS · CORRELATED</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Multi-source telemetry matrix</span>
+        <span className="font-mono text-[11px] text-slate-500">3 SIGNAL DOMAINS · CORRELATED</span>
       </div>
       <div className="space-y-1.5">
         {rows.map((row) => (
           <div key={row.source} className={`rounded border p-2 ${toneClass[row.tone] || toneClass.cyan}`}>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">{row.source}</span>
-              <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[9px] font-bold">{row.status}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wide opacity-70">{row.source}</span>
+              <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[11px] font-bold">{row.status}</span>
             </div>
             <div className="mt-1 grid grid-cols-[1.3fr_1fr_auto] items-end gap-2">
-              <span className="text-[10px] font-semibold">{row.signal}</span>
+              <span className="text-xs font-semibold">{row.signal}</span>
               <span className="font-mono text-xs font-bold">{row.value}</span>
-              <span className="font-mono text-[10px] font-bold">{row.delta}</span>
+              <span className="font-mono text-xs font-bold">{row.delta}</span>
             </div>
-            <div className="mt-1 flex justify-between gap-2 text-[9px] opacity-65"><span>Baseline: {row.baseline}</span><span>{row.detail}</span></div>
+            <div className="mt-1 flex justify-between gap-2 text-[11px] opacity-65"><span>Baseline: {row.baseline}</span><span>{row.detail}</span></div>
           </div>
         ))}
       </div>
@@ -412,7 +412,7 @@ function WarRoom({ spec, scenarioId, resolved, chosen, audit, onStrategy, contro
   return (
     <div className="space-y-3">
       <section className="rounded-lg border border-red-900/70 bg-gray-950 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Stage 1 · Root cause</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-red-400">Stage 1 · Root cause</p>
         <h3 className="mt-1 text-sm font-semibold text-white">Baseline deviation</h3>
         <div className="mt-3 grid grid-cols-3 gap-1.5">
           <SignalReadout label="Signal confidence" value="96.4%" detail="cross-module match" />
@@ -424,8 +424,8 @@ function WarRoom({ spec, scenarioId, resolved, chosen, audit, onStrategy, contro
         </div>
         <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/80 p-2">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">Live disaggregated telemetry</span>
-            <span className="font-mono text-[9px] text-emerald-300">STREAMING · 5s</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-300">Live disaggregated telemetry</span>
+            <span className="font-mono text-[11px] text-emerald-300">STREAMING · 5s</span>
           </div>
           <NilmTimeSeriesChart currentTime={scenarioId === 'cool_night_gap' ? '03:00' : '14:00'} scenario={telemetryScenario} />
         </div>
@@ -433,26 +433,26 @@ function WarRoom({ spec, scenarioId, resolved, chosen, audit, onStrategy, contro
         <div className="mt-2 grid grid-cols-2 gap-2">
           {spec.cross.map((item) => (
             <div key={item.label} className={`rounded border bg-gray-900 p-2 ${item.alert ? 'border-red-500/60' : 'border-gray-800'}`}>
-              <div className="text-[9px] uppercase text-gray-500">{item.label}</div>
+              <div className="text-[11px] uppercase text-gray-500">{item.label}</div>
               <div className={`font-mono text-sm ${item.alert ? 'font-bold text-red-300' : 'text-white'}`}>{item.value}</div>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[10px] leading-snug text-gray-400">{spec.crossNote}</p>
+        <p className="mt-2 text-xs leading-snug text-gray-400">{spec.crossNote}</p>
       </section>
 
       <section className="rounded-lg border border-amber-800/70 bg-gray-950 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Stage 2 · Asset thread</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-amber-400">Stage 2 · Asset thread</p>
         <div className="mt-1 flex items-center gap-2">
           <div className="rounded-md border border-slate-700 bg-slate-900 p-2"><AssetIcon scenarioId={scenarioId} /></div>
           <h3 className="text-sm font-semibold text-white">{spec.asset.name}</h3>
         </div>
-        <dl className="mt-2 space-y-1 font-mono text-[11px] text-gray-300">
+        <dl className="mt-2 space-y-1 font-mono text-[13px] text-gray-300">
           <div className="flex justify-between gap-2"><dt className="text-gray-500">Asset ID</dt><dd>{spec.asset.id}</dd></div>
-          <div className="flex items-center justify-between gap-2"><dt className="text-gray-500">Fault code</dt><dd className="rounded bg-red-950 px-1.5 py-0.5 text-right text-[10px] text-red-200 ring-1 ring-red-800">{spec.asset.code}</dd></div>
+          <div className="flex items-center justify-between gap-2"><dt className="text-gray-500">Fault code</dt><dd className="rounded bg-red-950 px-1.5 py-0.5 text-right text-xs text-red-200 ring-1 ring-red-800">{spec.asset.code}</dd></div>
         </dl>
         <div className="mt-3">
-          <div className="mb-1 flex justify-between text-[10px] text-gray-500">
+          <div className="mb-1 flex justify-between text-xs text-gray-500">
             <span>Health score</span>
             <span className={spec.asset.health <= 20 ? 'font-bold text-red-400' : 'font-bold text-amber-300'}>{spec.asset.health}% critical wear</span>
           </div>
@@ -460,31 +460,31 @@ function WarRoom({ spec, scenarioId, resolved, chosen, audit, onStrategy, contro
             <div className={`h-1.5 rounded-full ${healthTone}`} style={{ width: `${spec.asset.health}%` }} />
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-1.5 text-[9px]">
+        <div className="mt-3 grid grid-cols-2 gap-1.5 text-[11px]">
           <div className="rounded border border-slate-800 bg-slate-900 p-2"><span className="block uppercase text-gray-500">Last serviced</span><span className="mt-0.5 block font-mono font-bold text-gray-200">{spec.assetLifecycle?.lastServiced || '—'}</span></div>
           <div className="rounded border border-slate-800 bg-slate-900 p-2"><span className="block uppercase text-gray-500">Control protocol</span><span className="mt-0.5 block font-mono font-bold text-gray-200">{spec.assetLifecycle?.protocol || '—'}</span></div>
         </div>
-        <p className="mt-2 text-[9px] text-gray-500">Location: <span className="text-gray-300">{spec.assetLifecycle?.location || 'Unregistered'}</span></p>
+        <p className="mt-2 text-[11px] text-gray-500">Location: <span className="text-gray-300">{spec.assetLifecycle?.location || 'Unregistered'}</span></p>
         {scenarioId === 'ae_co2_spike' && (
           <div className="mt-3 rounded-md border border-orange-800/70 bg-orange-950/30 p-2">
-            <div className="flex items-center justify-between text-[10px] font-bold text-orange-200">
+            <div className="flex items-center justify-between text-xs font-bold text-orange-200">
               <span className="flex items-center gap-1"><SlidersHorizontal className="size-3" /> VAV-08 damper command</span>
               <span className="font-mono text-orange-300">{controls.damper}%</span>
             </div>
             <input aria-label="VAV-08 damper override" type="range" min="15" max="100" step="5" value={controls.damper} onChange={(event) => onDamperChange(Number(event.target.value))} className="mt-2 h-1.5 w-full accent-orange-400" />
-            <div className="mt-1 flex justify-between text-[9px] text-gray-500"><span>15% stuck</span><span>65% target</span><span>100%</span></div>
+            <div className="mt-1 flex justify-between text-[11px] text-gray-500"><span>15% stuck</span><span>65% target</span><span>100%</span></div>
           </div>
         )}
         {scenarioId === 'cool_night_gap' && (
           <button type="button" onClick={onSolenoidToggle} className={`mt-3 flex w-full items-center justify-between rounded-md border px-2 py-2 text-left ${controls.solenoidClosed ? 'border-emerald-500 bg-emerald-950/50' : 'border-sky-800 bg-sky-950/30'}`}>
-            <span className="flex items-center gap-2 text-[10px] font-bold text-sky-100"><ToggleRight className="size-4" /> CLOSE SECTIONAL SOLENOID</span>
-            <span className={`font-mono text-[10px] font-bold ${controls.solenoidClosed ? 'text-emerald-300' : 'text-sky-300'}`}>{controls.solenoidClosed ? 'CLOSED' : 'OPEN'}</span>
+            <span className="flex items-center gap-2 text-xs font-bold text-sky-100"><ToggleRight className="size-4" /> CLOSE SECTIONAL SOLENOID</span>
+            <span className={`font-mono text-xs font-bold ${controls.solenoidClosed ? 'text-emerald-300' : 'text-sky-300'}`}>{controls.solenoidClosed ? 'CLOSED' : 'OPEN'}</span>
           </button>
         )}
       </section>
 
       <section className="rounded-lg border border-emerald-900/70 bg-gray-950 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Stage 3 · What-if</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">Stage 3 · What-if</p>
         <h3 className="mt-1 text-sm font-semibold text-white">Intervention and payback</h3>
         <div className="mt-3 space-y-2">
           {['A', 'B'].map((key) => {
@@ -500,31 +500,31 @@ function WarRoom({ spec, scenarioId, resolved, chosen, audit, onStrategy, contro
                   selected ? 'border-emerald-400 bg-emerald-950/50' : key === 'A' && controlReady ? 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_14px_rgba(34,211,238,0.18)]' : 'border-gray-700 bg-gray-900 hover:border-gray-500'
                 }`}
               >
-                <span className="flex items-center justify-between gap-2 text-[11px] font-bold text-white"><span>{strategy.label}</span>{key === 'A' && controlReady && !resolved && <span className="rounded bg-cyan-400 px-1.5 py-0.5 text-[9px] text-gray-950">READY</span>}</span>
-                <span className="mt-1 block text-[10px] leading-snug text-gray-400">{strategy.result}</span>
-                <div className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-gray-800 pt-2 text-[9px]">
+                <span className="flex items-center justify-between gap-2 text-[13px] font-bold text-white"><span>{strategy.label}</span>{key === 'A' && controlReady && !resolved && <span className="rounded bg-cyan-400 px-1.5 py-0.5 text-[11px] text-gray-950">READY</span>}</span>
+                <span className="mt-1 block text-xs leading-snug text-gray-400">{strategy.result}</span>
+                <div className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-gray-800 pt-2 text-[11px]">
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Action</span><b className="mt-0.5 block break-words font-normal leading-snug text-gray-300">{strategy.action}</b></div>
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Impact</span><b className="mt-0.5 block break-words font-normal leading-snug text-emerald-200">{strategy.impact}</b></div>
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Cost</span><b className="mt-0.5 block break-words font-normal leading-snug text-amber-200">{strategy.cost}</b></div>
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Avoided</span><b className="mt-0.5 block break-words font-normal leading-snug text-cyan-200">{strategy.avoided}</b></div>
                 </div>
-                <div className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 border-t border-gray-800/70 pt-2 text-[9px]">
+                <div className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 border-t border-gray-800/70 pt-2 text-[11px]">
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Risk</span><span className="mt-0.5 block break-words leading-snug text-gray-400">{strategy.risk}</span></div>
                   <div className="min-w-0"><span className="block uppercase tracking-wide text-gray-500">Operator</span><span className="mt-0.5 block break-words leading-snug text-gray-400">{strategy.operator}</span></div>
                 </div>
-                <span className={`mt-2 block font-mono text-[11px] font-bold ${strategy.amountLabel.startsWith('+') ? 'text-emerald-300' : 'text-rose-300'}`}>{strategy.amountLabel}</span>
+                <span className={`mt-2 block font-mono text-[13px] font-bold ${strategy.amountLabel.startsWith('+') ? 'text-emerald-300' : 'text-rose-300'}`}>{strategy.amountLabel}</span>
               </button>
             );
           })}
         </div>
         <div className="mt-3 border-t border-gray-800 pt-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Intervention audit</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Intervention audit</p>
           {audit.length === 0 ? (
-            <p className="mt-1 text-[10px] text-gray-500">No strategy booked on this incident yet.</p>
+            <p className="mt-1 text-xs text-gray-500">No strategy booked on this incident yet.</p>
           ) : (
             <ul className="mt-2 space-y-1">
               {audit.slice(0, 3).map((row) => (
-                <li key={row.id} className="rounded border border-slate-800 bg-slate-900/80 p-2 text-[9px] leading-snug text-gray-300">
+                <li key={row.id} className="rounded border border-slate-800 bg-slate-900/80 p-2 text-[11px] leading-snug text-gray-300">
                   <div className="flex items-center justify-between gap-2"><span className="font-bold text-emerald-300">{row.strategy} · {row.amount}</span><span className="font-mono text-gray-500">{row.time}</span></div>
                   <div className="mt-1 font-semibold text-gray-200">{row.title}</div>
                   <div className="mt-1 grid grid-cols-2 gap-x-2 text-gray-500"><span>Actor: <b className="font-normal text-gray-300">{row.actor}</b></span><span>Role: <b className="font-normal text-gray-300">{row.role}</b></span><span>Identity: <b className="font-normal text-cyan-300">{row.identity}</b></span><span>Command: <b className="font-normal text-gray-300">{row.command}</b></span></div>
@@ -550,39 +550,39 @@ function IdleCommandBrief({ onSelectScenario }) {
       <section className="rounded-lg border border-cyan-800/70 bg-gradient-to-br from-cyan-950/50 via-gray-950 to-gray-950 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400">Digital Twin Command Center</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-400">Digital Twin Command Center</p>
             <h3 className="mt-1 text-lg font-bold text-white">Scenario sandbox ready</h3>
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">This view is reserved for incident simulation, spatial localization, and closed-loop intervention. Live operational telemetry remains in the Electric, Indoor, Water, and Waste modules.</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-gray-400">This view is reserved for incident simulation, spatial localization, and closed-loop intervention. Live operational telemetry remains in the Electric, Indoor, Water, and Waste modules.</p>
           </div>
-          <div className="rounded-full border border-emerald-700 bg-emerald-950/50 px-2 py-1 font-mono text-[9px] font-bold text-emerald-300">DRY-RUN</div>
+          <div className="rounded-full border border-emerald-700 bg-emerald-950/50 px-2 py-1 font-mono text-[11px] font-bold text-emerald-300">DRY-RUN</div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-1.5">
-          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">05</div><div className="text-[9px] uppercase text-gray-500">drill cases</div></div>
-          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">04</div><div className="text-[9px] uppercase text-gray-500">linked domains</div></div>
-          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">03</div><div className="text-[9px] uppercase text-gray-500">response stages</div></div>
+          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">05</div><div className="text-[11px] uppercase text-gray-500">drill cases</div></div>
+          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">04</div><div className="text-[11px] uppercase text-gray-500">linked domains</div></div>
+          <div className="rounded border border-gray-800 bg-gray-900/80 p-2"><div className="font-mono text-lg font-bold text-white">03</div><div className="text-[11px] uppercase text-gray-500">response stages</div></div>
         </div>
       </section>
 
       <section className="rounded-lg border border-gray-800 bg-gray-950 p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Command sequence</p>
-          <span className="font-mono text-[9px] text-gray-600">TWIN.MODE / READY</span>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Command sequence</p>
+          <span className="font-mono text-[11px] text-gray-600">TWIN.MODE / READY</span>
         </div>
         <div className="space-y-2">
           {steps.map((step) => (
             <div key={step.index} className={`rounded border p-2.5 ${step.tone}`}>
-              <div className="flex items-center gap-2"><span className="font-mono text-[10px] font-bold opacity-60">{step.index}</span><span className="text-[11px] font-bold">{step.title}</span></div>
-              <p className="mt-1 pl-7 text-[10px] leading-snug opacity-70">{step.detail}</p>
+              <div className="flex items-center gap-2"><span className="font-mono text-xs font-bold opacity-60">{step.index}</span><span className="text-[13px] font-bold">{step.title}</span></div>
+              <p className="mt-1 pl-7 text-xs leading-snug opacity-70">{step.detail}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Recommended opening drill</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Recommended opening drill</p>
         <button type="button" onClick={() => onSelectScenario('ae_co2_spike')} className="mt-2 w-full rounded-md border border-red-800 bg-red-950/40 p-3 text-left hover:border-red-500">
-          <div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-red-100">L8 Meeting CO₂ Surge</span><span className="font-mono text-[10px] text-emerald-300">+ RM 400</span></div>
-          <p className="mt-1 text-[10px] leading-snug text-red-200/70">Best demonstration of Reserve → Indoor → Electric evidence linkage and live damper control.</p>
+          <div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-red-100">L8 Meeting CO₂ Surge</span><span className="font-mono text-xs text-emerald-300">+ RM 400</span></div>
+          <p className="mt-1 text-xs leading-snug text-red-200/70">Best demonstration of Reserve → Indoor → Electric evidence linkage and live damper control.</p>
         </button>
       </section>
     </div>
@@ -713,9 +713,9 @@ export default function DigitalTwinCommandCenter() {
         .dt-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
       `}</style>
       <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-gray-950 text-gray-100 lg:flex-row">
-        <aside className="flex max-h-[48vh] w-full shrink-0 flex-col overflow-hidden border-b border-gray-800 bg-gray-900 shadow-2xl lg:h-full lg:max-h-none lg:w-1/4 lg:border-b-0 lg:border-r">
+        <aside className="flex max-h-[48vh] w-full shrink-0 flex-col overflow-hidden border-b border-gray-800 bg-gray-900 shadow-2xl lg:h-full lg:max-h-none lg:w-[42%] xl:w-[38%] lg:border-b-0 lg:border-r">
           <div className="border-b border-gray-800 p-4">
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{spec ? 'War Room' : 'Command Brief'}</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">{spec ? 'War Room' : 'Command Brief'}</h2>
             <p className="mt-1 text-sm font-semibold text-white">{spec ? 'Three-stage incident resolution' : 'Scenario simulation and response control'}</p>
           </div>
           <div className="dt-scroll flex-1 space-y-4 overflow-y-auto p-4">
@@ -767,7 +767,7 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'rainstorm_cooling' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-red-900/50 bg-red-950/50 p-2">
                   <span className="animate-pulse text-xs text-red-500">⚠️</span>
-                  <div className="text-[10px] leading-tight text-red-300">
+                  <div className="text-xs leading-tight text-red-300">
                     <strong className="block text-red-400">Peak Demand Warning</strong>
                     Sump pumps and HVAC operating simultaneously. Approaching the 2,100 kW limit.
                   </div>
@@ -776,19 +776,19 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'cool_night_gap' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-orange-900/50 bg-orange-950/50 p-2">
                   <span className="text-xs text-orange-500">⚠️</span>
-                  <div className="text-[10px] leading-tight text-orange-300">
+                  <div className="text-xs leading-tight text-orange-300">
                     <strong className="block text-orange-400">Base-load Anomaly</strong>
                     Unscheduled pump load detected during unoccupied hours.
                   </div>
                 </div>
               )}
               {activeScenario === 'ae_co2_spike' && (
-                <p className="mt-3 text-[10px] leading-tight text-amber-200">AHU fan is holding. Fresh-air damper is not tracking the CO₂ call.</p>
+                <p className="mt-3 text-xs leading-tight text-amber-200">AHU fan is holding. Fresh-air damper is not tracking the CO₂ call.</p>
               )}
               {activeScenario === 'office_vav_fault' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-orange-900/50 bg-orange-950/50 p-2">
                   <span className="animate-pulse text-xs text-orange-400">⚠️</span>
-                  <div className="text-[10px] leading-tight text-orange-200">
+                  <div className="text-xs leading-tight text-orange-200">
                     <strong className="block text-orange-300">Local demand spike</strong>
                     VAV-08 reheat and fan compensation are driving excess L8 kW.
                   </div>
@@ -797,13 +797,13 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'podium_lighting_fault' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-amber-900/50 bg-amber-950/50 p-2">
                   <span className="animate-pulse text-xs text-amber-300">💡</span>
-                  <div className="text-[10px] leading-tight text-amber-100">
+                  <div className="text-xs leading-tight text-amber-100">
                     <strong className="block text-amber-300">After-hours lighting load</strong>
                     Empty podium circuit remains at daytime load.
                   </div>
                 </div>
               )}
-              {!activeScenario && <p className="mt-2 text-[10px] text-emerald-400">Nominal demand. No unscheduled plant load.</p>}
+              {!activeScenario && <p className="mt-2 text-xs text-emerald-400">Nominal demand. No unscheduled plant load.</p>}
             </DockCard>
 
             <DockCard
@@ -818,13 +818,13 @@ export default function DigitalTwinCommandCenter() {
             >
               <div className="mb-2 grid grid-cols-2 gap-3">
                 <div className="rounded border border-gray-800 bg-gray-900 p-2">
-                  <div className="text-[9px] uppercase text-gray-500">Avg Temp</div>
+                  <div className="text-[11px] uppercase text-gray-500">Avg Temp</div>
                   <div className={`font-mono text-sm text-white ${activeScenario === 'rainstorm_cooling' ? 'animate-pulse' : ''}`}>
                     {activeScenario === 'rainstorm_cooling' ? '22.4°C' : activeScenario === 'office_vav_fault' ? '16.1°C' : '24.2°C'}
                   </div>
                 </div>
                 <div className={`rounded border bg-gray-900 p-2 ${activeScenario === 'ae_co2_spike' ? 'border-red-500/50' : 'border-gray-800'}`}>
-                  <div className="text-[9px] uppercase text-gray-500">Peak CO₂ (L8)</div>
+                  <div className="text-[11px] uppercase text-gray-500">Peak CO₂ (L8)</div>
                   <div className={`font-mono text-sm ${activeScenario === 'ae_co2_spike' ? 'animate-pulse font-bold text-red-400' : 'text-white'}`}>
                     {activeScenario === 'ae_co2_spike' ? '1,500 ppm' : '420 ppm'}
                   </div>
@@ -842,7 +842,7 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'ae_co2_spike' && (
                 <div className="mt-2 flex items-start gap-2 rounded border border-red-900/50 bg-red-950/50 p-2">
                   <span className="text-xs text-red-500">🚨</span>
-                  <div className="text-[10px] leading-tight text-red-300">
+                  <div className="text-xs leading-tight text-red-300">
                     <strong className="block text-red-400">GreenRE EQ-3 Breach</strong>
                     CO₂ above the 1,000 ppm threshold. VAV-08 fresh air damper unresponsive.
                   </div>
@@ -851,7 +851,7 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'rainstorm_cooling' && (
                 <div className="mt-2 flex items-start gap-2 rounded border border-cyan-900/50 bg-cyan-950/40 p-2">
                   <span className="text-xs text-cyan-300">💨</span>
-                  <div className="text-[10px] leading-tight text-cyan-100">
+                  <div className="text-xs leading-tight text-cyan-100">
                     <strong className="block text-cyan-300">Anti-condensation</strong>
                     Outdoor air mutated. VAV boxes and chillers retuned to hold surfaces above dew point.
                   </div>
@@ -860,7 +860,7 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'office_vav_fault' && (
                 <div className="mt-2 flex items-start gap-2 rounded border border-orange-900/50 bg-orange-950/50 p-2">
                   <span className="text-xs text-orange-400">⚠️</span>
-                  <div className="text-[10px] leading-tight text-orange-200">
+                  <div className="text-xs leading-tight text-orange-200">
                     <strong className="block text-orange-300">ASHRAE airflow fault</strong>
                     L8 is 8°C below setpoint while peer floors remain normal.
                   </div>
@@ -897,7 +897,7 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'rainstorm_cooling' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-blue-900/50 bg-blue-950/40 p-2">
                   <span className="animate-pulse text-xs text-blue-300">🌧️</span>
-                  <div className="text-[10px] leading-tight text-blue-100">
+                  <div className="text-xs leading-tight text-blue-100">
                     <strong className="block text-blue-300">Harvest at capacity</strong>
                     Rainwater plant is full. Subterranean sump pump is draining.
                   </div>
@@ -906,13 +906,13 @@ export default function DigitalTwinCommandCenter() {
               {activeScenario === 'cool_night_gap' && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-red-900/50 bg-red-950/50 p-2">
                   <span className="animate-pulse text-xs text-red-400">💧</span>
-                  <div className="text-[10px] leading-tight text-red-200">
+                  <div className="text-xs leading-tight text-red-200">
                     <strong className="block text-red-400">Hidden micro-leak</strong>
                     Pressure differential on the L2 podium while the floor is empty.
                   </div>
                 </div>
               )}
-              {!activeScenario && <p className="mt-2 text-[10px] text-emerald-400">Pressure stable. No leak signature.</p>}
+              {!activeScenario && <p className="mt-2 text-xs text-emerald-400">Pressure stable. No leak signature.</p>}
             </DockCard>
 
             <DockCard
@@ -935,18 +935,18 @@ export default function DigitalTwinCommandCenter() {
                 points={activeScenario ? [10, 18, 22, 40, 55, 70, 84, 90] : [12, 12, 11, 13, 12, 12, 11, 12]}
               />
               {activeScenario === 'ae_co2_spike' && (
-                <p className="mt-2 text-[10px] leading-tight text-amber-100">Manual path is 4 hours and RM 200 labor, plus tenant-churn exposure. Approve books the avoidance.</p>
+                <p className="mt-2 text-xs leading-tight text-amber-100">Manual path is 4 hours and RM 200 labor, plus tenant-churn exposure. Approve books the avoidance.</p>
               )}
               {activeScenario === 'cool_night_gap' && (
-                <p className="mt-2 text-[10px] leading-tight text-amber-100">Open leak path can lose tens of tonnes before morning. Valve isolation is the booked avoidance.</p>
+                <p className="mt-2 text-xs leading-tight text-amber-100">Open leak path can lose tens of tonnes before morning. Valve isolation is the booked avoidance.</p>
               )}
               {activeScenario === 'rainstorm_cooling' && (
-                <p className="mt-2 text-[10px] leading-tight text-amber-100">Drainage pumps and cooling share one peak. Coordination is the demand-charge avoidance.</p>
+                <p className="mt-2 text-xs leading-tight text-amber-100">Drainage pumps and cooling share one peak. Coordination is the demand-charge avoidance.</p>
               )}
               {activeScenario === 'podium_lighting_fault' && (
-                <p className="mt-2 text-[10px] leading-tight text-amber-100">Empty podium and 176 kW lighting load conflict. Restoring the schedule books RM 420 avoided loss.</p>
+                <p className="mt-2 text-xs leading-tight text-amber-100">Empty podium and 176 kW lighting load conflict. Restoring the schedule books RM 420 avoided loss.</p>
               )}
-              {!activeScenario && <p className="mt-2 text-[10px] text-emerald-400">Ledger quiet. No open avoidance.</p>}
+              {!activeScenario && <p className="mt-2 text-xs text-emerald-400">Ledger quiet. No open avoidance.</p>}
             </DockCard>
 
             <DockCard
@@ -961,7 +961,7 @@ export default function DigitalTwinCommandCenter() {
             >
               <Meter label="Monthly intensity" right="62% of budget" barClass="w-[62%] bg-lime-500" />
               <Sparkline stroke="#a3e635" points={[70, 68, 66, 64, 63, 62, 61, 62]} />
-              <p className="mt-2 text-[10px] text-gray-400">Grid and plant intensity inside the monthly envelope.</p>
+              <p className="mt-2 text-xs text-gray-400">Grid and plant intensity inside the monthly envelope.</p>
             </DockCard>
 
             <DockCard
@@ -976,13 +976,43 @@ export default function DigitalTwinCommandCenter() {
             >
               <Meter label="Diversion rate" right="71% diverted" barClass="w-[71%] bg-emerald-500" />
               <Sparkline stroke="#34d399" points={[64, 66, 65, 68, 69, 70, 71, 71]} />
-              <p className="mt-2 text-[10px] text-gray-400">Podium streams are tracking the diversion target.</p>
+              <p className="mt-2 text-xs text-gray-400">Podium streams are tracking the diversion target.</p>
             </DockCard>
             </>)}
           </div>
         </aside>
 
-        <section className="relative flex min-h-[420px] w-full flex-1 items-center justify-center bg-gray-900 shadow-[inset_0_0_120px_rgba(0,0,0,1)] lg:w-2/4 lg:flex-none">
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          {/* Scenario injector: a compact strip above the twin, so the building gets the full width below */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-800 bg-gray-950 px-4 py-2.5">
+            <div className="shrink-0">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-400">Scenario injector</p>
+              <h2 className="text-sm font-semibold text-white">Ace linkage drills</h2>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+              {Object.entries(SCENARIOS).map(([id, item]) => {
+                const on = activeScenario === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => triggerScenario(id)}
+                    className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-left text-xs font-semibold ${
+                      on
+                        ? 'border-cyan-400 bg-cyan-950/60 text-cyan-50'
+                        : 'border-gray-700 bg-gray-900 text-gray-200 hover:border-gray-500'
+                    }`}
+                  >
+                    {item.button}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <section className="relative flex min-h-[420px] w-full flex-1 items-center justify-center bg-gray-900 shadow-[inset_0_0_120px_rgba(0,0,0,1)]">
           {spec && (
             <div className="absolute top-0 z-30 w-full">
               <div className={`dt-fade-down flex items-center gap-3 border-b px-6 py-3 backdrop-blur-sm ${spec.banner.shell}`}>
@@ -997,7 +1027,7 @@ export default function DigitalTwinCommandCenter() {
 
           <div className="pointer-events-none absolute bottom-20 h-16 w-64 rounded-full bg-cyan-500/20 blur-3xl" />
 
-          <div className="relative z-10 h-full min-h-[420px] w-full lg:h-[700px]">
+          <div className="relative z-10 h-full min-h-[420px] w-full">
             {glFailed ? (
               <CssTower selectedZone={selectedZone} onSelect={setSelectedZone} />
             ) : (
@@ -1031,41 +1061,18 @@ export default function DigitalTwinCommandCenter() {
           )}
         </section>
 
-        <aside className="relative flex w-full shrink-0 flex-col border-t border-gray-800 bg-gray-950 lg:w-1/4 lg:border-l lg:border-t-0 max-h-[46vh] lg:max-h-none overflow-hidden">
-          <div className="border-b border-gray-800 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400">Scenario injector</p>
-            <h2 className="mt-1 text-sm font-semibold text-white">Ace linkage drills</h2>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-            {Object.entries(SCENARIOS).map(([id, item]) => {
-              const on = activeScenario === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => triggerScenario(id)}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold leading-snug ${
-                    on
-                      ? 'border-cyan-400 bg-cyan-950/50 text-cyan-50'
-                      : 'border-gray-700 bg-gray-900 text-gray-200 hover:border-gray-500'
-                  }`}
-                >
-                  {item.button}
-                </button>
-              );
-            })}
-          </div>
-
+        {/* Diagnosis + ROI ledger rail: only takes space when it has something to show */}
+        {(spec || roiLedger.length > 0) && (
+        <aside className="dt-scroll relative flex max-h-[46vh] w-full shrink-0 flex-col overflow-y-auto border-t border-gray-800 bg-gray-950 lg:max-h-none lg:w-80 lg:border-l lg:border-t-0">
           {spec && (
-            <div className="max-h-[46%] overflow-y-auto border-t border-cyan-800 bg-gray-950 p-3 shadow-[0_-16px_40px_rgba(0,0,0,0.55)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-400">AI RAG diagnosis</p>
+            <div className="border-b border-cyan-800 bg-gray-950 p-3">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-400">AI RAG diagnosis</p>
               <h3 className="mt-1 text-sm font-bold text-white">{spec.diagnosis.title}</h3>
-              <p className="mt-2 text-[11px] leading-relaxed text-gray-300">{spec.diagnosis.body}</p>
-              <p className="mt-2 rounded border border-amber-800/80 bg-amber-950/40 px-2 py-1.5 text-[11px] font-semibold text-amber-100">
+              <p className="mt-2 text-[13px] leading-relaxed text-gray-300">{spec.diagnosis.body}</p>
+              <p className="mt-2 rounded border border-amber-800/80 bg-amber-950/40 px-2 py-1.5 text-[13px] font-semibold text-amber-100">
                 {spec.diagnosis.finding}
               </p>
-              <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              <p className="mt-2 text-[13px] leading-relaxed text-gray-400">
                 {resolved ? `Strategy ${chosen} booked. Floor marker is nominal. The ledger line stays.` : 'Pick a strategy on the left, or approve Strategy A from here. Dry-run only.'}
               </p>
               <button
@@ -1081,29 +1088,32 @@ export default function DigitalTwinCommandCenter() {
           )}
 
           <div className="mt-auto border-t border-gray-800 px-3 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Executive ROI ledger</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-gray-500">Executive ROI ledger</p>
             {roiLedger.length === 0 ? (
-              <p className="mt-2 text-[11px] text-gray-500">No booked avoidance yet. Approve a drill to post one.</p>
+              <p className="mt-2 text-[13px] text-gray-500">No booked avoidance yet. Approve a drill to post one.</p>
             ) : (
               <ul className="mt-2 max-h-28 space-y-2 overflow-y-auto">
                 {roiLedger.map((row) => (
                   <li key={row.id} className="rounded border border-emerald-900/80 bg-emerald-950/30 px-2 py-1.5">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-[11px] font-semibold text-emerald-200">{row.title}</span>
-                      <span className="shrink-0 text-[11px] font-bold text-emerald-300">{row.amount}</span>
+                      <span className="text-[13px] font-semibold text-emerald-200">{row.title}</span>
+                      <span className="shrink-0 text-[13px] font-bold text-emerald-300">{row.amount}</span>
                     </div>
-                    <p className="mt-0.5 text-[10px] leading-snug text-gray-400">{row.detail}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-gray-400">{row.detail}</p>
                   </li>
                 ))}
               </ul>
             )}
             {roiLedger.length > 0 && (
-              <button type="button" onClick={() => navigate('/executive?tab=reports')} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-cyan-800 bg-cyan-950/40 px-3 py-2 text-[10px] font-bold text-cyan-200 hover:border-cyan-400">
+              <button type="button" onClick={() => navigate('/executive?tab=reports')} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-cyan-800 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 hover:border-cyan-400">
                 <FileCheck2 className="size-3.5" /> Review in GreenRE Audit Reports
               </button>
             )}
           </div>
         </aside>
+        )}
+          </div>
+        </div>
       </div>
     </AppShell>
   );
