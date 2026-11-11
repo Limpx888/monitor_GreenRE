@@ -285,6 +285,7 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
   const [range, setRange] = useState({ start: iso(new Date(today - 30 * DAY)), end: iso(today) });
   const [query, setQuery] = useState(range);
   const [reportState, setReportState] = useState({ data: null, loading: true, error: null });
+  const [scenarioHandoff, setScenarioHandoff] = useState(null);
   const [isGeneratingDossier, setIsGeneratingDossier] = useState(false);
   const [exportingOverviewPdf, setExportingOverviewPdf] = useState(false);
   const history = useHistory();
@@ -315,6 +316,41 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
       });
     return () => ctrl.abort();
   }, [qs]);
+
+  // Receives the latest Digital Twin resolution immediately, without waiting for
+  // the periodic report endpoint to refresh.
+  useEffect(() => {
+    const persistHandoff = (handoff) => {
+      if (!handoff?.id) return;
+      fetch('/api/v1/reports/scenario-interventions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(handoff),
+      }).catch(() => {});
+    };
+    const readHandoff = () => {
+      try {
+        const raw = window.localStorage.getItem('gogreen:lastScenarioIntervention');
+        const handoff = raw ? JSON.parse(raw) : null;
+        setScenarioHandoff(handoff);
+        persistHandoff(handoff);
+      } catch {
+        setScenarioHandoff(null);
+      }
+    };
+    const onScenarioResolved = (event) => {
+      setScenarioHandoff(event.detail || null);
+      persistHandoff(event.detail);
+    };
+
+    readHandoff();
+    window.addEventListener('gogreen:scenario-resolved', onScenarioResolved);
+    window.addEventListener('storage', readHandoff);
+    return () => {
+      window.removeEventListener('gogreen:scenario-resolved', onScenarioResolved);
+      window.removeEventListener('storage', readHandoff);
+    };
+  }, []);
 
   // ── 2. Live Autonomous Operations Audit Ledger ───────────────────────────────
   const [controlLogs, setControlLogs] = useState([]);
@@ -366,6 +402,12 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
 
   // ── 3. Live Financial ROI & Decarbonization Derivations ───────────────────────
   const d = reportState.data;
+  const scenarioEvidence = d?.scenario_evidence;
+  const resolvedIncidentRows = useMemo(() => {
+    const stored = scenarioEvidence?.recent || [];
+    if (!scenarioHandoff) return stored;
+    return stored.some((item) => item.id === scenarioHandoff.id) ? stored : [scenarioHandoff, ...stored];
+  }, [scenarioEvidence, scenarioHandoff]);
   const repLoading = reportState.loading && !d;
   const e = d?.energy;
   const w = d?.water;
@@ -444,13 +486,25 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
   const handleDownloadGreenREDossier = async () => {
     setIsGeneratingDossier(true);
     toast.info('Compiling official GreenRE Continuous Compliance Audit Dossier (PDF)...');
+    const ctrl = new AbortController();
+    const timeout = window.setTimeout(() => ctrl.abort(), 45000);
     try {
-      window.open('/api/v1/reports/greenre', '_blank');
+      const res = await fetch('/api/v1/reports/greenre', { signal: ctrl.signal });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Server responded ${res.status}`);
+      const blob = await res.blob();
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'greenre-evidence.pdf';
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href: url, download: name });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
       toast.success('GreenRE Compliance Dossier downloaded successfully!');
     } catch (error) {
       console.error('Failed to generate report', error);
-      toast.error('Report generation failed. Please verify backend connectivity.');
+      toast.error(error.name === 'AbortError' ? 'Report generation timed out. Please restart the backend and try again.' : `Report generation failed: ${error.message}`);
     } finally {
+      window.clearTimeout(timeout);
       setIsGeneratingDossier(false);
     }
   };
@@ -761,6 +815,45 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
             </div>
           </div>
 
+          {/* Digital Twin resolved incident collection */}
+          {resolvedIncidentRows.length > 0 && (
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardHeader
+                title="Resolved Incident Evidence Collection"
+                description="Closed-loop Digital Twin interventions retained as executive evidence, separate from the low-level control audit stream."
+                actions={
+                  <div className="flex items-center gap-2">
+                    <Badge tone="success">{resolvedIncidentRows.length} Resolved</Badge>
+                    <Button size="sm" variant="secondary" onClick={() => handleTabChange('reports')}>
+                      View Reports
+                    </Button>
+                  </div>
+                }
+              />
+              <div className="grid gap-3 p-4 pt-0 md:grid-cols-2 xl:grid-cols-3">
+                {resolvedIncidentRows.slice(0, 6).map((incident) => (
+                  <div key={`roi-${incident.id}`} className="rounded-lg border border-emerald-500/20 bg-surface/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-bold text-fg">{incident.scenarioTitle || incident.scenarioId}</div>
+                        <div className="mt-1 text-[10px] text-muted">{incident.floor || 'Facility'} · {incident.clause || 'GreenRE evidence'}</div>
+                      </div>
+                      <span className="shrink-0 font-mono text-xs font-bold text-emerald-500">{incident.amount}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-2 text-[10px]">
+                      <div><span className="block text-muted">Energy saved</span><span className="font-semibold text-fg">{incident.energySavedKwh ?? '—'} kWh</span></div>
+                      <div><span className="block text-muted">Carbon avoided</span><span className="font-semibold text-fg">{incident.carbonSavedKg ?? '—'} kg CO₂e</span></div>
+                    </div>
+                    <div className="mt-2 truncate text-[10px] text-muted">{incident.outcome || incident.command}</div>
+                  </div>
+                ))}
+              </div>
+              {resolvedIncidentRows.length > 6 && (
+                <div className="px-4 pb-4 text-[11px] text-muted">Showing the 6 most recent incidents. The complete collection is available in Audit Reports & Analytics.</div>
+              )}
+            </Card>
+          )}
+
           {/* Autonomous Operations Audit Ledger Table */}
           <Card className="p-0 overflow-hidden">
             <div className="p-5 pb-3">
@@ -829,6 +922,113 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
               )}
             </div>
           </Card>
+
+          {resolvedIncidentRows.length > 0 && (
+            <div className="space-y-4">
+            {resolvedIncidentRows.map((handoff) => (
+            <Card key={handoff.id} className="border-emerald-500/40 bg-emerald-500/5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FileCheck2 className="size-5 text-emerald-500" />
+                    <h2 className="text-base font-bold text-fg">Resolved incident evidence</h2>
+                    <Badge tone="success">READY FOR GREENRE REVIEW</Badge>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-fg">
+                    {handoff.scenarioTitle} · {handoff.floor}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">{handoff.outcome}</p>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-lg font-bold text-emerald-500">{handoff.amount}</div>
+                  <div className="text-[11px] text-muted">avoided / posted value</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="rounded-md border border-border bg-surface/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-muted">GreenRE clause</div>
+                  <div className="mt-1 text-xs font-semibold text-fg">{handoff.clause || '—'}</div>
+                </div>
+                <div className="rounded-md border border-border bg-surface/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-muted">Energy saved</div>
+                  <div className="mt-1 text-xs font-semibold text-fg">{handoff.energySavedKwh ?? '—'} kWh</div>
+                </div>
+                <div className="rounded-md border border-border bg-surface/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-muted">Carbon avoided</div>
+                  <div className="mt-1 text-xs font-semibold text-fg">{handoff.carbonSavedKg ?? '—'} kg CO₂e</div>
+                </div>
+                <div className="rounded-md border border-border bg-surface/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-muted">Executed by</div>
+                  <div className="mt-1 text-xs font-semibold text-fg">{handoff.actor || '—'}</div>
+                </div>
+                <div className="rounded-md border border-border bg-surface/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-muted">Identity</div>
+                  <div className="mt-1 break-words text-xs font-semibold text-fg">{handoff.identity || '—'}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
+                <span className="text-muted">
+                  Audit command: <span className="font-semibold text-fg">{handoff.command}</span> · {handoff.time}
+                </span>
+                <span className="font-semibold text-emerald-500">Included in next GreenRE PDF export</span>
+              </div>
+            </Card>
+            ))}
+            </div>
+          )}
+
+          {scenarioEvidence?.available && (
+            <Card>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Closed-loop evidence register</p>
+                  <h2 className="mt-1 text-base font-bold text-fg">Resolved incidents by reporting period</h2>
+                  <p className="mt-1 text-xs text-muted">Monthly is the executive default; yearly shows portfolio impact. Daily detail remains available for operational traceability.</p>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-lg font-bold text-emerald-500">RM {fmt(scenarioEvidence.total_avoided_value_myr)}</div>
+                  <div className="text-[11px] text-muted">{scenarioEvidence.total_incidents} resolved incident{scenarioEvidence.total_incidents === 1 ? '' : 's'}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                {[['monthly', 'Monthly executive roll-up'], ['yearly', 'Yearly portfolio roll-up']].map(([key, title]) => (
+                  <div key={key} className="rounded-lg border border-border bg-surface/50 p-3">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-fg">{title}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-muted">{scenarioEvidence[key]?.length || 0} period{scenarioEvidence[key]?.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {(scenarioEvidence[key] || []).map((row) => (
+                        <div key={`${key}-${row.period}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-border/70 px-3 py-2">
+                          <span className="font-mono text-xs font-bold text-primary">{row.period}</span>
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-semibold text-fg">{row.scenarios.join(' · ')}</div>
+                            <div className="text-[10px] text-muted">{row.incidents} incident{row.incidents === 1 ? '' : 's'} · {fmt(row.energy_saved_kwh)} kWh · {fmt(row.carbon_avoided_kg, 1)} kg CO₂e</div>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-emerald-500">RM {fmt(row.avoided_value_myr)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <details className="mt-4 rounded-lg border border-border bg-surface/30 p-3">
+                <summary className="cursor-pointer text-xs font-bold text-fg">Daily operational detail ({scenarioEvidence.daily?.length || 0} days)</summary>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {(scenarioEvidence.daily || []).map((row) => (
+                    <div key={`daily-${row.period}`} className="rounded-md border border-border/70 px-3 py-2">
+                      <div className="font-mono text-xs font-bold text-primary">{row.period}</div>
+                      <div className="mt-1 text-[10px] text-muted">{row.incidents} resolved · RM {fmt(row.avoided_value_myr)}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </Card>
+          )}
 
           {reportState.error ? (
             <Card>

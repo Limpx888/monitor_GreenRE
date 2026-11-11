@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -20,8 +20,27 @@ from blob_store import reports_store
 from database import get_db
 from overview_pdf import build_overview_pdf
 from report_service import build_overview
+from scenario_evidence import build_evidence_summary, record_intervention
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
+
+
+@router.post("/scenario-interventions")
+async def scenario_intervention(payload: dict[str, Any] = Body(...)):
+    """Persist a Digital Twin approval for future reports and PDF evidence."""
+    required = ("id", "scenarioId", "scenarioTitle", "savedAt", "amount")
+    missing = [key for key in required if not payload.get(key)]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing scenario evidence fields: {', '.join(missing)}")
+    return await asyncio.to_thread(record_intervention, payload)
+
+
+@router.get("/scenario-evidence")
+async def scenario_evidence(
+    start: Optional[datetime] = Query(None),
+    end: Optional[datetime] = Query(None),
+):
+    return await asyncio.to_thread(build_evidence_summary, start, end)
 
 
 def _report(db: Session, start: Optional[datetime], end: Optional[datetime], with_ai: bool) -> dict:
