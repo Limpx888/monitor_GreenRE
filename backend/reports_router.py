@@ -2,6 +2,7 @@
 
 GET /api/v1/reports/overview?start=&end=      JSON for the /reports page
 GET /api/v1/reports/overview.pdf?start=&end=  PDF download; a copy is archived (Azure Blob or local disk)
+GET /api/v1/reports/full.pdf?start=&end=      one-click export: overview + GreenRE audit dossier in one PDF (archived)
 GET /api/v1/reports/history                   archived PDFs, newest first
 GET /api/v1/reports/files/{name}              download an archived PDF
 """
@@ -70,6 +71,71 @@ async def overview_pdf(
     pdf = await asyncio.to_thread(build_overview_pdf, data)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     name = f"gogreen-report-{data['period']['start'][:10]}_{data['period']['end'][:10]}-{stamp}.pdf"
+    archived = True
+    try:
+        await asyncio.to_thread(reports_store().put, name, pdf, "application/pdf")
+    except Exception as exc:  # the download still works if archiving fails
+        print(f"[Reports] archive failed: {exc}")
+        archived = False
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "X-Report-Archived": "true" if archived else "false",
+            "X-Report-Store": reports_store().backend,
+            "Access-Control-Expose-Headers": "Content-Disposition, X-Report-Archived, X-Report-Store",
+        },
+    )
+
+
+def _merge_pdfs(parts: list[tuple[str, bytes]]) -> bytes:
+    """Concatenate PDFs into one file with a top-level bookmark per part."""
+    from io import BytesIO
+
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+    for title, data in parts:
+        start = len(writer.pages)
+        writer.append(PdfReader(BytesIO(data)))
+        writer.add_outline_item(title, start)
+    writer.add_metadata({"/Title": "GoGreen full sustainability report", "/Author": "GoGreen"})
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def _build_full_report(db: Session, start: Optional[datetime], end: Optional[datetime]) -> tuple[dict, bytes]:
+    # One thread, one session: the two builders run sequentially on the same db session
+    from reports import build_greenre_pdf
+
+    data = _report(db, start, end, True)
+    overview = build_overview_pdf(data)
+    dossier = build_greenre_pdf(db)
+    merged = _merge_pdfs([
+        ("Part 1: Sustainability overview", overview),
+        ("Part 2: GreenRE compliance audit dossier", dossier),
+    ])
+    return data, merged
+
+
+@router.get("/full.pdf")
+async def full_report_pdf(
+    start: Optional[datetime] = Query(None),
+    end: Optional[datetime] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """One-click export: the sustainability overview for the period followed by the GreenRE audit dossier."""
+    try:
+        data, pdf = await asyncio.to_thread(_build_full_report, db, start, end)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[Reports] full report build failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Full report generation failed: {exc}") from exc
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    name = f"gogreen-full-report-{data['period']['start'][:10]}_{data['period']['end'][:10]}-{stamp}.pdf"
     archived = True
     try:
         await asyncio.to_thread(reports_store().put, name, pdf, "application/pdf")

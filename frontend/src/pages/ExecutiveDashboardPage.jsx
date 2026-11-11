@@ -15,7 +15,6 @@ import {
   Droplets,
   ExternalLink,
   FileCheck2,
-  FileSpreadsheet,
   FileText,
   HardHat,
   HelpCircle,
@@ -286,8 +285,7 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
   const [query, setQuery] = useState(range);
   const [reportState, setReportState] = useState({ data: null, loading: true, error: null });
   const [scenarioHandoff, setScenarioHandoff] = useState(null);
-  const [isGeneratingDossier, setIsGeneratingDossier] = useState(false);
-  const [exportingOverviewPdf, setExportingOverviewPdf] = useState(false);
+  const [exportingFullReport, setExportingFullReport] = useState(false);
   const history = useHistory();
 
   const choosePreset = (v) => {
@@ -483,39 +481,17 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
   }, [e]);
 
   // ── 4. PDF Export Handlers ───────────────────────────────────────────────────
-  const handleDownloadGreenREDossier = async () => {
-    setIsGeneratingDossier(true);
-    toast.info('Compiling official GreenRE Continuous Compliance Audit Dossier (PDF)...');
+  /** One click: sustainability overview for the selected period + GreenRE audit dossier, merged into one PDF. */
+  const exportFullReport = async () => {
+    setExportingFullReport(true);
+    toast.info('Compiling the full sustainability report and GreenRE audit dossier (PDF)…');
     const ctrl = new AbortController();
-    const timeout = window.setTimeout(() => ctrl.abort(), 45000);
+    const timeout = window.setTimeout(() => ctrl.abort(), 120000);
     try {
-      const res = await fetch('/api/v1/reports/greenre', { signal: ctrl.signal });
+      const res = await fetch(`/api/v1/reports/full.pdf?${qs}`, { signal: ctrl.signal });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Server responded ${res.status}`);
       const blob = await res.blob();
-      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'greenre-evidence.pdf';
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), { href: url, download: name });
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      toast.success('GreenRE Compliance Dossier downloaded successfully!');
-    } catch (error) {
-      console.error('Failed to generate report', error);
-      toast.error(error.name === 'AbortError' ? 'Report generation timed out. Please restart the backend and try again.' : `Report generation failed: ${error.message}`);
-    } finally {
-      window.clearTimeout(timeout);
-      setIsGeneratingDossier(false);
-    }
-  };
-
-  const exportOverviewPdf = async () => {
-    setExportingOverviewPdf(true);
-    try {
-      const res = await fetch(`/api/v1/reports/overview.pdf?${qs}`);
-      if (!res.ok) throw new Error(`Server responded ${res.status}`);
-      const blob = await res.blob();
-      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'gogreen-sustainability-report.pdf';
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'gogreen-full-report.pdf';
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement('a'), { href: url, download: name });
       document.body.appendChild(a);
@@ -523,12 +499,14 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       const store = res.headers.get('X-Report-Store');
-      toast.success(store === 'azure-blob' ? 'PDF downloaded & archived to Azure Blob Storage' : 'PDF downloaded');
+      toast.success(store === 'azure-blob' ? 'Full report downloaded & archived to Azure Blob Storage' : 'Full report downloaded');
       history.reload();
-    } catch (e) {
-      toast.error(`Couldn't export the PDF: ${e.message}`);
+    } catch (error) {
+      console.error('Failed to generate report', error);
+      toast.error(error.name === 'AbortError' ? 'Report generation timed out. Please try again.' : `Report generation failed: ${error.message}`);
     } finally {
-      setExportingOverviewPdf(false);
+      window.clearTimeout(timeout);
+      setExportingFullReport(false);
     }
   };
 
@@ -597,24 +575,14 @@ export default function ExecutiveDashboardPage({ defaultTab }) {
             <Button
               variant="primary"
               size="sm"
-              loading={isGeneratingDossier}
+              loading={exportingFullReport}
+              disabled={invalidDateRange}
               icon={<Download className="size-4" />}
-              onClick={handleDownloadGreenREDossier}
+              onClick={exportFullReport}
+              title="Sustainability overview for the selected period, followed by the GreenRE audit dossier, in one PDF"
             >
-              Export GreenRE Audit Dossier (PDF)
+              Export Full Report (PDF)
             </Button>
-            {activeTab === 'reports' && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={exportingOverviewPdf}
-                disabled={!d || invalidDateRange}
-                icon={<FileSpreadsheet className="size-4" />}
-                onClick={exportOverviewPdf}
-              >
-                Export Sustainability Overview (PDF)
-              </Button>
-            )}
           </div>
         }
       />
