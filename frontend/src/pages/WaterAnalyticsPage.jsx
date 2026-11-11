@@ -39,12 +39,12 @@ export default function WaterAnalyticsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: '80px 20px', textAlign: 'center', color: '#64748b' }}>
+      <div style={{ padding: '80px 20px', textAlign: 'center', color: 'var(--gg-muted)' }}>
         <div className="waste-spinner large" style={{ margin: '0 auto 18px' }} />
-        <p style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', margin: '0 0 6px 0' }}>
+        <p style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--gg-fg)', margin: '0 0 6px 0' }}>
           Aggregating 20.6M Telemetry Records in DuckDB...
         </p>
-        <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+        <p style={{ fontSize: '0.82rem', color: 'var(--gg-subtle)', margin: 0 }}>
           Calculating portfolio totals, meter distributions, and space typology benchmarks
         </p>
       </div>
@@ -58,18 +58,18 @@ export default function WaterAnalyticsPage() {
           style={{
             maxWidth: '600px',
             margin: '0 auto',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
+            background: 'var(--gg-danger-bg)',
+            border: '1px solid var(--gg-line)',
             borderRadius: '16px',
             padding: '24px',
             boxShadow: '0 4px 12px rgba(220, 38, 38, 0.08)',
           }}
         >
           <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚠️</div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#991b1b', margin: '0 0 8px 0' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--gg-danger)', margin: '0 0 8px 0' }}>
             Analytics Backend Not Reachable
           </h3>
-          <p style={{ fontSize: '0.85rem', color: '#b91c1c', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--gg-danger)', margin: '0 0 16px 0', lineHeight: 1.5 }}>
             {error || 'Unable to retrieve portfolio benchmarks.'} Ensure the Python backend is running on <code>http://127.0.0.1:5000</code> via <code>npm run backend</code>.
           </p>
           <button
@@ -123,10 +123,10 @@ export default function WaterAnalyticsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gg-fg)', margin: 0 }}>
             📈 Portfolio Water Intelligence & Benchmarking
           </h1>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+          <p style={{ color: 'var(--gg-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
             Aggregated cross-sectional fluid load analytics across {stats.total_buildings || 769} facilities in {stats.total_sites || 13} campus sites
           </p>
         </div>
@@ -135,13 +135,13 @@ export default function WaterAnalyticsPage() {
           type="button"
           onClick={fetchStats}
           style={{
-            background: 'white',
-            border: '1px solid #cbd5e1',
+            background: 'var(--gg-surface)',
+            border: '1px solid var(--gg-line-strong)',
             padding: '8px 16px',
             borderRadius: '10px',
             fontSize: '0.82rem',
             fontWeight: 700,
-            color: '#334155',
+            color: 'var(--gg-fg)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -155,54 +155,54 @@ export default function WaterAnalyticsPage() {
 
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Monitored Buildings</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Monitored Buildings</span>
             <span style={{ fontSize: '1.2rem' }}>🏢</span>
           </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--gg-fg)', fontFamily: 'monospace' }}>
             {stats.total_buildings || 769}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-success)', fontWeight: 600, marginTop: '4px' }}>
             Across {stats.total_sites || 13} Regional Sites
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>DuckDB Records</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>DuckDB Records</span>
             <span style={{ fontSize: '1.2rem' }}>⚡</span>
           </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284c7', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--gg-water)', fontFamily: 'monospace' }}>
             {(stats.total_records || 20641574).toLocaleString()}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', fontWeight: 600, marginTop: '4px' }}>
             Sub-hourly meter observations
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Fluid Classifications</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Fluid Classifications</span>
             <span style={{ fontSize: '1.2rem' }}>💧</span>
           </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--gg-fg)', fontFamily: 'monospace' }}>
             {meterData.length} Types
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', fontWeight: 600, marginTop: '4px' }}>
             Chilled, Hot, Steam, Domestic, Irrig.
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Top Typology Load</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Top Typology Load</span>
             <span style={{ fontSize: '1.2rem' }}>🎓</span>
           </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0f172a', textTransform: 'capitalize' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--gg-fg)', textTransform: 'capitalize' }}>
             {spaceData[0]?.name || 'Education'}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', fontWeight: 600, marginTop: '4px' }}>
             {spaceData[0]?.buildings || 0} monitored facilities
           </div>
         </div>
@@ -211,23 +211,23 @@ export default function WaterAnalyticsPage() {
       {/* Main Charts Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '24px' }}>
         {/* Space Usage Breakdown Chart */}
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--gg-shadow-xs)' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--gg-fg)', margin: '0 0 4px 0' }}>
             Consumption by Space Typology
           </h3>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 16px 0' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', margin: '0 0 16px 0' }}>
             Total volumetric water demand across building categories (m³)
           </p>
 
           <div style={{ height: '320px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={spaceData.slice(0, 8)} margin={{ top: 10, right: 10, left: 20, bottom: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} angle={-20} textAnchor="end" />
-                <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(val) => val >= 1e9 ? `${(val / 1e9).toFixed(0)}B` : val >= 1e6 ? `${(val / 1e6).toFixed(0)}M` : val} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
+                <XAxis dataKey="name" stroke="var(--gg-subtle)" fontSize={11} angle={-20} textAnchor="end" />
+                <YAxis stroke="var(--gg-subtle)" fontSize={11} tickFormatter={(val) => val >= 1e9 ? `${(val / 1e9).toFixed(0)}B` : val >= 1e6 ? `${(val / 1e6).toFixed(0)}M` : val} />
                 <Tooltip
                   formatter={(val) => [`${Number(val).toLocaleString()} m³`, 'Total Volume']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--gg-line)' }}
                 />
                 <Bar dataKey="volume" fill="#0284c7" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -236,23 +236,23 @@ export default function WaterAnalyticsPage() {
         </div>
 
         {/* Meter Type Distribution Bar Chart */}
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--gg-shadow-xs)' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--gg-fg)', margin: '0 0 4px 0' }}>
             Fluid Meter Deployment
           </h3>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 16px 0' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', margin: '0 0 16px 0' }}>
             Number of monitored facilities by fluid meter classification
           </p>
 
           <div style={{ height: '320px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={meterData} layout="vertical" margin={{ top: 10, right: 20, left: 40, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis type="number" stroke="#94a3b8" fontSize={11} />
-                <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} width={90} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
+                <XAxis type="number" stroke="var(--gg-subtle)" fontSize={11} />
+                <YAxis dataKey="name" type="category" stroke="var(--gg-subtle)" fontSize={10} width={90} />
                 <Tooltip
                   formatter={(val) => [`${val} Buildings`, 'Coverage']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--gg-line)' }}
                 />
                 <Bar dataKey="buildings" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
               </BarChart>

@@ -97,8 +97,8 @@ export default function WaterLayout() {
         </div>
       )}
 
-      {/* Legacy water pages are styled for a light surface; they get a light island until migrated */}
-      <div data-theme="light" className="water-theme-container min-h-[65vh] rounded-xl border border-line bg-surface p-4 text-fg shadow-sm sm:p-6">
+      {/* Water pages use the design tokens, so they follow the app theme like every other module */}
+      <div className="min-h-[65vh] text-fg">
         <Outlet context={{ activeBuilding, setActiveBuilding, selectedBuildingData, buildings, loading, connError, retryConnect: loadBuildings }} />
       </div>
     </AppShell>

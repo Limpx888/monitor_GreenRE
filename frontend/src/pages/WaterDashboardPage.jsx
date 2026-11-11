@@ -26,11 +26,11 @@ const METER_LABELS = {
 const EMPTY_TOTALS = { general_water: 0, chilled_water: 0, irrigation: 0, hot_water: 0, steam: 0 };
 
 const LIVE_STATUS = {
-  open: { label: 'LIVE', bg: '#dcfce7', fg: '#166534' },
-  connecting: { label: 'CONNECTING', bg: '#fef9c3', fg: '#854d0e' },
-  reconnecting: { label: 'RECONNECTING', bg: '#fef9c3', fg: '#854d0e' },
-  closed: { label: 'OFFLINE', bg: '#fee2e2', fg: '#991b1b' },
-  idle: { label: 'OFFLINE', bg: '#fee2e2', fg: '#991b1b' },
+  open: { label: 'LIVE', bg: 'var(--gg-success-bg)', fg: 'var(--gg-success)' },
+  connecting: { label: 'CONNECTING', bg: 'var(--gg-warning-bg)', fg: 'var(--gg-warning)' },
+  reconnecting: { label: 'RECONNECTING', bg: 'var(--gg-warning-bg)', fg: 'var(--gg-warning)' },
+  closed: { label: 'OFFLINE', bg: 'var(--gg-danger-bg)', fg: 'var(--gg-danger)' },
+  idle: { label: 'OFFLINE', bg: 'var(--gg-danger-bg)', fg: 'var(--gg-danger)' },
 };
 
 const formatClock = (iso) => (iso ? iso.slice(11, 19) : '--:--:--');
@@ -144,7 +144,7 @@ export default function WaterDashboardPage() {
 
   if (buildingsLoading && !isLive) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--gg-muted)' }}>
         <div className="waste-spinner large" style={{ margin: '0 auto 16px' }} />
         <p style={{ fontWeight: 600 }}>Loading DuckDB Water Database...</p>
       </div>
@@ -157,13 +157,13 @@ export default function WaterDashboardPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gg-fg)', margin: 0 }}>
               💧 Water & Fluid Monitoring
             </h1>
             <span
               style={{
-                background: '#e0f2fe',
-                color: '#0369a1',
+                background: 'var(--gg-info-bg)',
+                color: 'var(--gg-water)',
                 padding: '4px 12px',
                 borderRadius: '12px',
                 fontSize: '0.8rem',
@@ -173,7 +173,7 @@ export default function WaterDashboardPage() {
               {selectedBuildingData?.space_usage?.toUpperCase() || 'COMMERCIAL'} · {selectedBuildingData?.site}
             </span>
           </div>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+          <p style={{ color: 'var(--gg-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
             {isLive
               ? `Real-time smart flow meters · MQTT → DuckDB → WebSocket · ${liveKpi?.active_meters ?? 0} meters reporting · updated ${formatClock(liveUpdatedAt)}`
               : 'High-precision multi-meter telemetry queried from DuckDB (BDG2 2016–2017 historical records)'}
@@ -182,7 +182,7 @@ export default function WaterDashboardPage() {
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Live / Historical mode switch */}
-          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
+          <div style={{ display: 'flex', background: 'var(--gg-surface-2)', borderRadius: '10px', padding: '3px' }}>
             {[['live', '● Live'], ['historical', 'Historical']].map(([m, label]) => (
               <button
                 key={m}
@@ -190,7 +190,7 @@ export default function WaterDashboardPage() {
                 onClick={() => setMode(m)}
                 style={{
                   background: mode === m ? (m === 'live' ? '#059669' : '#0284c7') : 'transparent',
-                  color: mode === m ? 'white' : '#64748b',
+                  color: mode === m ? 'white' : 'var(--gg-muted)',
                   border: 'none',
                   padding: '6px 14px',
                   borderRadius: '8px',
@@ -206,7 +206,7 @@ export default function WaterDashboardPage() {
 
           {isLive ? (
             /* Tumbling-window size for the live time series */
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
+            <div style={{ display: 'flex', background: 'var(--gg-surface-2)', borderRadius: '10px', padding: '3px' }}>
               {[1, 5].map((b) => (
                 <button
                   key={b}
@@ -214,7 +214,7 @@ export default function WaterDashboardPage() {
                   onClick={() => setLiveBucket(b)}
                   style={{
                     background: liveBucket === b ? '#0284c7' : 'transparent',
-                    color: liveBucket === b ? 'white' : '#64748b',
+                    color: liveBucket === b ? 'white' : 'var(--gg-muted)',
                     border: 'none',
                     padding: '6px 14px',
                     borderRadius: '8px',
@@ -229,7 +229,7 @@ export default function WaterDashboardPage() {
             </div>
           ) : (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px' }}>
+          <div style={{ display: 'flex', background: 'var(--gg-surface-2)', borderRadius: '10px', padding: '3px' }}>
             {['hourly', 'daily', 'monthly'].map((g) => (
               <button
                 key={g}
@@ -237,7 +237,7 @@ export default function WaterDashboardPage() {
                 onClick={() => setGranularity(g)}
                 style={{
                   background: granularity === g ? '#0284c7' : 'transparent',
-                  color: granularity === g ? 'white' : '#64748b',
+                  color: granularity === g ? 'white' : 'var(--gg-muted)',
                   border: 'none',
                   padding: '6px 14px',
                   borderRadius: '8px',
@@ -259,11 +259,11 @@ export default function WaterDashboardPage() {
             style={{
               padding: '6px 12px',
               borderRadius: '8px',
-              border: '1px solid #cbd5e1',
+              border: '1px solid var(--gg-line-strong)',
               fontSize: '0.8rem',
               fontWeight: 600,
-              color: '#334155',
-              background: 'white',
+              color: 'var(--gg-fg)',
+              background: 'var(--gg-surface)',
               cursor: 'pointer'
             }}
           >
@@ -278,71 +278,71 @@ export default function WaterDashboardPage() {
       </div>
 
       {brokerDown && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
+        <div style={{ background: 'var(--gg-warning-bg)', border: '1px solid var(--gg-line)', color: 'var(--gg-warning)', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
           ⚠️ Backend is not connected to the MQTT broker ({livePipeline.broker}). Start it with <code>docker compose up -d mqtt</code>, then run <code>python edge-simulator/mock_water_meters.py</code>.
         </div>
       )}
 
       {!isLive && error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
+        <div style={{ background: 'var(--gg-danger-bg)', border: '1px solid var(--gg-line)', color: 'var(--gg-danger)', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
           ⚠️ {error}
         </div>
       )}
 
       {/* KPI Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Total Flow Volume</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Total Flow Volume</span>
             <span style={{ fontSize: '1.2rem' }}>🌊</span>
           </div>
-          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--gg-fg)', fontFamily: 'monospace' }}>
             {totalVolume.toLocaleString(undefined, isLive
               ? { minimumFractionDigits: 3, maximumFractionDigits: 3 }
-              : { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>m³</span>
+              : { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: 'var(--gg-subtle)' }}>m³</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: isLive && liveStatus !== 'open' ? '#b45309' : '#059669', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: isLive && liveStatus !== 'open' ? 'var(--gg-warning)' : 'var(--gg-success)', fontWeight: 600, marginTop: '4px' }}>
             {isLive
               ? `● Live register · ${(liveKpi?.total_flow_m3_per_hr ?? 0).toFixed(2)} m³/h now · +${windowVolume.toFixed(2)} m³ (24h)`
               : '● Active Multi-Meter Stream'}
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Cooling Tower Ratio (WE-3)</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Cooling Tower Ratio (WE-3)</span>
             <span style={{ fontSize: '1.2rem' }}>❄️</span>
           </div>
-          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: Number(coolingRatio) <= 20.0 ? '#0284c7' : '#e11d48', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: Number(coolingRatio) <= 20.0 ? 'var(--gg-water)' : 'var(--gg-danger)', fontFamily: 'monospace' }}>
             {coolingRatio}%
           </div>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '4px', color: Number(coolingRatio) <= 20.0 ? '#059669' : '#dc2626' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, marginTop: '4px', color: Number(coolingRatio) <= 20.0 ? 'var(--gg-success)' : 'var(--gg-danger)' }}>
             {Number(coolingRatio) <= 20.0 ? '✓ GreenRE Compliant (<=20%)' : '⚠️ Exceeds 20% Standard'}
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Landscape Irrigation</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Landscape Irrigation</span>
             <span style={{ fontSize: '1.2rem' }}>🌱</span>
           </div>
-          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
-            {totalsByType.irrigation.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>m³</span>
+          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--gg-fg)', fontFamily: 'monospace' }}>
+            {totalsByType.irrigation.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: 'var(--gg-subtle)' }}>m³</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', fontWeight: 600, marginTop: '4px' }}>
             WE-4 Drip network monitored
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '18px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Thermal / Steam Energy</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>Thermal / Steam Energy</span>
             <span style={{ fontSize: '1.2rem' }}>♨️</span>
           </div>
-          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#0f172a', fontFamily: 'monospace' }}>
-            {(totalsByType.hot_water + totalsByType.steam).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>m³</span>
+          <div style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--gg-fg)', fontFamily: 'monospace' }}>
+            {(totalsByType.hot_water + totalsByType.steam).toLocaleString(undefined, { maximumFractionDigits: 1 })} <span style={{ fontSize: '0.9rem', color: 'var(--gg-subtle)' }}>m³</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', fontWeight: 600, marginTop: '4px' }}>
             Hot water & steam condensate
           </div>
         </div>
@@ -351,13 +351,13 @@ export default function WaterDashboardPage() {
       {/* Main Charts Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '24px' }}>
         {/* Time-Series Stacked Flow Chart */}
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--gg-shadow-xs)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--gg-fg)', margin: 0 }}>
                 Disaggregated Water Time Series ({isLive ? `LIVE · ${liveBucket}-MIN WINDOWS` : granularity.toUpperCase()})
               </h3>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--gg-muted)' }}>
                 {isLive
                   ? `Volume consumed per ${liveBucket}-minute window (m³), last 24 h`
                   : `Multi-meter volumetric flow trends (m³) for ${activeBuilding}`}
@@ -368,7 +368,7 @@ export default function WaterDashboardPage() {
                 {liveBadge.label}
               </span>
             ) : (
-              <span style={{ fontSize: '0.7rem', background: '#f0fdf4', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.7rem', background: 'var(--gg-success-bg)', color: 'var(--gg-success)', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
                 LIVE QUERY
               </span>
             )}
@@ -376,7 +376,7 @@ export default function WaterDashboardPage() {
 
           <div style={{ height: '320px', width: '100%' }}>
             {isLive && chartData.length === 0 ? (
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px', textAlign: 'center' }}>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--gg-subtle)', gap: '8px', textAlign: 'center' }}>
                 {liveStatus === 'open' ? (
                   <>
                     <span>Waiting for smart meter readings…</span>
@@ -390,12 +390,12 @@ export default function WaterDashboardPage() {
                 )}
               </div>
             ) : !isLive && loading ? (
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', gap: '8px' }}>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--gg-muted)', gap: '8px' }}>
                 <div className="waste-spinner" style={{ width: '24px', height: '24px' }} />
                 <span style={{ fontSize: '0.85rem' }}>Loading telemetry from DuckDB...</span>
               </div>
             ) : !isLive && !activeBuilding ? (
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '10px' }}>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--gg-subtle)', gap: '10px' }}>
                 <span>{connError ? 'Backend disconnected. Please start backend on port 5000.' : 'Please select a building above.'}</span>
                 {retryConnect && (
                   <button
@@ -408,7 +408,7 @@ export default function WaterDashboardPage() {
                 )}
               </div>
             ) : chartData.length === 0 ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gg-subtle)' }}>
                 No telemetry recorded for this timeframe for {activeBuilding}.
               </div>
             ) : (
@@ -428,21 +428,21 @@ export default function WaterDashboardPage() {
                       <stop offset="95%" stopColor={METER_COLORS.irrigation} stopOpacity={0.05} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--gg-surface-2)" />
                   <XAxis
                     dataKey="timestamp"
-                    stroke="#94a3b8"
+                    stroke="var(--gg-subtle)"
                     fontSize={11}
                     tickLine={false}
                     tickFormatter={isLive ? formatBucketTick : undefined}
                     minTickGap={24}
                   />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={isLive ? (v) => v.toFixed(3) : undefined} />
+                  <YAxis stroke="var(--gg-subtle)" fontSize={11} tickLine={false} tickFormatter={isLive ? (v) => v.toFixed(3) : undefined} />
                   <Tooltip
                     contentStyle={{
-                      background: 'rgba(255, 255, 255, 0.96)',
+                      background: 'var(--gg-surface)',
                       borderRadius: '10px',
-                      border: '1px solid #e2e8f0',
+                      border: '1px solid var(--gg-line)',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       fontSize: '12px',
                     }}
@@ -460,11 +460,11 @@ export default function WaterDashboardPage() {
         </div>
 
         {/* Water Distribution Donut Chart */}
-        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+        <div style={{ background: 'var(--gg-surface)', border: '1px solid var(--gg-line)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--gg-shadow-xs)' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--gg-fg)', margin: '0 0 4px 0' }}>
             Fluid Meter Distribution
           </h3>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 16px 0' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--gg-muted)', margin: '0 0 16px 0' }}>
             {isLive ? 'Live share of volume consumed by sub-system (rolling 24 h)' : 'Proportion of fluid load by sub-system'}
           </p>
 
@@ -482,7 +482,7 @@ export default function WaterDashboardPage() {
                   isAnimationActive={!isLive}
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={METER_COLORS[entry.meter_type] || '#94a3b8'} />
+                    <Cell key={`cell-${index}`} fill={METER_COLORS[entry.meter_type] || 'var(--gg-subtle)'} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -498,9 +498,9 @@ export default function WaterDashboardPage() {
               <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: METER_COLORS[item.meter_type] }} />
-                  <span style={{ color: '#475569', fontWeight: 600 }}>{item.name}</span>
+                  <span style={{ color: 'var(--gg-muted)', fontWeight: 600 }}>{item.name}</span>
                 </span>
-                <span style={{ fontWeight: 800, color: '#0f172a' }}>{item.percent}%</span>
+                <span style={{ fontWeight: 800, color: 'var(--gg-fg)' }}>{item.percent}%</span>
               </div>
             ))}
           </div>

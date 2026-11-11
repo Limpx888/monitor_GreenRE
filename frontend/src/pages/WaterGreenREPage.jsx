@@ -37,7 +37,7 @@ export default function WaterGreenREPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--gg-muted)' }}>
         <div className="waste-spinner large" style={{ margin: '0 auto 16px' }} />
         <p style={{ fontWeight: 600 }}>Running GreenRE Water Compliance Engine on DuckDB...</p>
       </div>
@@ -53,24 +53,24 @@ export default function WaterGreenREPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gg-fg)', margin: 0 }}>
               🏢 GreenRE Water Efficiency (WE) Audit
             </h1>
             <span
               style={{
-                background: '#f0fdf4',
-                color: '#15803d',
+                background: 'var(--gg-success-bg)',
+                color: 'var(--gg-success)',
                 padding: '4px 12px',
                 borderRadius: '12px',
                 fontSize: '0.8rem',
                 fontWeight: 700,
-                border: '1px solid #bbf7d0',
+                border: '1px solid var(--gg-line)',
               }}
             >
               STANDARDS v3.1 COMPLIANT
             </span>
           </div>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+          <p style={{ color: 'var(--gg-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
             Automated verification of Water Use Intensity (WUI), cooling tower ratios, and irrigation standards for <b>{activeBuilding}</b>
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function WaterGreenREPage() {
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
+        <div style={{ background: 'var(--gg-danger-bg)', border: '1px solid var(--gg-line)', color: 'var(--gg-danger)', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.85rem' }}>
           ⚠️ {error}
         </div>
       )}
@@ -161,7 +161,7 @@ export default function WaterGreenREPage() {
       </div>
 
       {/* Compliance Criteria Matrix */}
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: '16px' }}>
+      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--gg-fg)', marginBottom: '16px' }}>
         Audit Criteria Verification Matrix
       </h3>
 
@@ -172,8 +172,8 @@ export default function WaterGreenREPage() {
             <div
               key={item.criteria_id}
               style={{
-                background: 'white',
-                border: '1px solid #e2e8f0',
+                background: 'var(--gg-surface)',
+                border: '1px solid var(--gg-line)',
                 borderRadius: '16px',
                 padding: '20px',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
@@ -186,9 +186,9 @@ export default function WaterGreenREPage() {
               <div>
                 <span
                   style={{
-                    background: isCompliant ? '#f0fdf4' : '#fef2f2',
-                    color: isCompliant ? '#15803d' : '#b91c1c',
-                    border: `1px solid ${isCompliant ? '#bbf7d0' : '#fecaca'}`,
+                    background: isCompliant ? 'var(--gg-success-bg)' : 'var(--gg-danger-bg)',
+                    color: isCompliant ? 'var(--gg-success)' : 'var(--gg-danger)',
+                    border: `1px solid ${isCompliant ? 'var(--gg-line)' : 'var(--gg-line)'}`,
                     padding: '4px 10px',
                     borderRadius: '8px',
                     fontSize: '0.75rem',
@@ -199,29 +199,29 @@ export default function WaterGreenREPage() {
                 >
                   {item.criteria_id}
                 </span>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isCompliant ? '#16a34a' : '#dc2626' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isCompliant ? 'var(--gg-success)' : 'var(--gg-danger)' }}>
                   {isCompliant ? '✓ COMPLIANT' : '⚠️ GAP FOUND'}
                 </div>
               </div>
 
               <div>
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem' }}>{item.category}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>{item.description}</div>
+                <div style={{ fontWeight: 800, color: 'var(--gg-fg)', fontSize: '0.95rem' }}>{item.category}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--gg-muted)', marginTop: '2px' }}>{item.description}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>MEASURED vs THRESHOLD</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--gg-subtle)', fontWeight: 600 }}>MEASURED vs THRESHOLD</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--gg-fg)', fontFamily: 'monospace', marginTop: '2px' }}>
                   {item.measured_value}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Standard: {item.threshold}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--gg-muted)' }}>Standard: {item.threshold}</div>
               </div>
 
-              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', borderLeft: `3px solid ${isCompliant ? '#0284c7' : '#f59e0b'}` }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+              <div style={{ background: 'var(--gg-surface-2)', padding: '10px 14px', borderRadius: '10px', borderLeft: `3px solid ${isCompliant ? '#0284c7' : '#f59e0b'}` }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--gg-muted)', textTransform: 'uppercase' }}>
                   Actionable AI Recommendation
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 600, marginTop: '2px' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--gg-fg)', fontWeight: 600, marginTop: '2px' }}>
                   {item.recommendation}
                 </div>
               </div>
