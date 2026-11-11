@@ -136,6 +136,34 @@ export default function WaterDashboardPage() {
   const liveBadge = LIVE_STATUS[liveStatus] || LIVE_STATUS.idle;
   const brokerDown = isLive && liveStatus === 'open' && livePipeline && !livePipeline.connected;
 
+  // Robust y-axis: scale to typical values so a one-off catch-up spike (e.g. the meter
+  // register jumping after a backend restart) doesn't flatten every other reading.
+  // The spike still runs off the top, its true value stays in the tooltip, and a note names it.
+  const yScale = useMemo(() => {
+    const values = [];
+    let peak = { value: 0, at: null, key: null };
+    chartData.forEach((row) => {
+      SERIES_ORDER.forEach((key) => {
+        const v = Number(row[key]) || 0;
+        if (v > 0) values.push(v);
+        if (v > peak.value) peak = { value: v, at: row.timestamp, key };
+      });
+    });
+    if (values.length < 10) return { domain: [0, 'auto'], clipped: [] };
+    const sorted = [...values].sort((a, b) => a - b);
+    const p98 = sorted[Math.floor(sorted.length * 0.98) - 1] || sorted[sorted.length - 1];
+    const cap = p98 * 1.6;
+    if (peak.value <= cap * 1.5) return { domain: [0, 'auto'], clipped: [] };
+    const clipped = [];
+    chartData.forEach((row) => {
+      SERIES_ORDER.forEach((key) => {
+        const v = Number(row[key]) || 0;
+        if (v > cap) clipped.push({ at: row.timestamp, key, value: v });
+      });
+    });
+    return { domain: [0, Number(cap.toPrecision(2))], clipped: clipped.sort((a, b) => b.value - a.value), peak };
+  }, [chartData]);
+
   const pieData = useMemo(() => {
     return Object.entries(totalsByType)
       .filter(([_, val]) => val > 0)
@@ -434,7 +462,13 @@ export default function WaterDashboardPage() {
                     minTickGap={28}
                     dy={6}
                   />
-                  <YAxis {...fxAxis} width={52} tickFormatter={isLive ? (v) => v.toFixed(2) : (v) => (v >= 1e3 ? `${(v / 1e3).toFixed(0)}k` : v)} />
+                  <YAxis
+                    {...fxAxis}
+                    width={52}
+                    domain={yScale.domain}
+                    allowDataOverflow={yScale.clipped.length > 0}
+                    tickFormatter={isLive ? (v) => v.toFixed(2) : (v) => (v >= 1e3 ? `${(v / 1e3).toFixed(0)}k` : v)}
+                  />
                   <Tooltip
                     content={<GlassTooltip unit="m³" digits={isLive ? 3 : 1} showTotal labelFormatter={isLive ? formatBucketTick : undefined} />}
                     cursor={{ stroke: 'var(--gg-line-strong)', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -460,6 +494,17 @@ export default function WaterDashboardPage() {
               </ResponsiveContainer>
             )}
           </div>
+          {yScale.clipped.length > 0 && (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 0 0', fontSize: '0.75rem', color: 'var(--gg-muted)' }}>
+              <span style={{ padding: '2px 8px', borderRadius: '999px', background: 'var(--gg-warning-bg)', color: 'var(--gg-warning)', fontWeight: 700 }}>
+                ⤒ {yScale.clipped.length} spike{yScale.clipped.length > 1 ? 's' : ''} above scale
+              </span>
+              <span>
+                Largest: <b style={{ color: 'var(--gg-fg)', fontFamily: 'var(--font-mono)' }}>{yScale.peak.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} m³</b>{' '}
+                {SERIES_NAMES[yScale.peak.key]} at {isLive ? formatBucketTick(yScale.peak.at) : yScale.peak.at}. Hover it for exact values.
+              </span>
+            </p>
+          )}
           {chartData.length > 0 && (
             <PillLegend items={SERIES_ORDER.map((key) => ({ key, label: SERIES_NAMES[key], color: METER_COLORS[key] }))} />
           )}
